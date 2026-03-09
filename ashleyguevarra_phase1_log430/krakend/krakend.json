@@ -1,0 +1,134 @@
+{
+  "version": 3,
+  "name": "BrokerX API Gateway",
+  "timeout": "3000ms",
+  "port": 8080,
+  "endpoints": [
+    {
+      "endpoint": "/actuator/health",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "backend": [
+        {
+          "host": [
+            "http://nginx"
+          ],
+          "url_pattern": "/actuator/health",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/customers",
+      "method": "POST",
+      "input_headers": [
+        "Authorization",
+        "Content-Type"
+      ],
+      "output_encoding": "no-op",
+      "backend": [
+        {
+          "host": [
+            "http://nginx"
+          ],
+          "url_pattern": "/customers",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/customers/{customerId}/kyc/approve",
+      "method": "PATCH",
+      "input_headers": [
+        "Authorization",
+        "Content-Type"
+      ],
+      "output_encoding": "no-op",
+      "backend": [
+        {
+          "host": [
+            "http://nginx"
+          ],
+          "url_pattern": "/customers/{customerId}/kyc/approve",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/customers/{customerId}/accounts",
+      "method": "POST",
+      "input_headers": [
+        "Authorization",
+        "Content-Type"
+      ],
+      "output_encoding": "no-op",
+      "backend": [
+        {
+          "host": [
+            "http://nginx"
+          ],
+          "url_pattern": "/customers/{customerId}/accounts",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/accounts/{accountId}/balance",
+      "method": "GET",
+      "input_headers": [
+        "Authorization",
+        "Content-Type",
+        "X-Customer-Id"
+      ],
+      "output_encoding": "no-op",
+      "backend": [
+        {
+          "host": [
+            "http://nginx"
+          ],
+          "url_pattern": "/accounts/{accountId}/balance",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/accounts/{accountId}/ledger",
+      "method": "GET",
+      "input_headers": [
+        "Authorization",
+        "Content-Type",
+        "X-Customer-Id"
+      ],
+      "output_encoding": "no-op",
+      "backend": [
+        {
+          "host": [
+            "http://nginx"
+          ],
+          "url_pattern": "/accounts/{accountId}/ledger",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
+      "endpoint": "/transfers",
+      "method": "POST",
+      "input_headers": [
+        "Authorization",
+        "Content-Type",
+        "X-Customer-Id",
+        "Idempotency-Key"
+      ],
+      "output_encoding": "no-op",
+      "backend": [
+        {
+          "host": [
+            "http://nginx"
+          ],
+          "url_pattern": "/transfers",
+          "encoding": "no-op"
+        }
+      ]
+    }
+  ]
+}

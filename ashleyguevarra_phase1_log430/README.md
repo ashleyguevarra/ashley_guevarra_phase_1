@@ -1,0 +1,1 @@
+La configuration CORS a été activée pour permettre les appels depuis un client local (ex. `localhost:3000`) tout en conservant l’authentification sur les endpoints protégés.

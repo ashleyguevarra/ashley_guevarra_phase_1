@@ -1,0 +1,732 @@
+{
+  "info": {
+    "_postman_id": "f1a0181b-59ea-496f-891a-70c789dd1263",
+    "name": "BrokerX Banking API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "18775849"
+  },
+  "item": [
+    {
+      "name": "transfers",
+      "item": [
+        {
+          "name": "create",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Customer-Id",
+                "value": "string"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "string"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "*/*"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fromAccountId\": \"6fac2e99-b61a-19b0-027c-9efd59e5ed73\",\n  \"toAccountId\": \"0b2fd067-b0ee-6a07-173d-d03784846596\",\n  \"amountCents\": 2843\n}",
+              "options": {
+                "raw": {
+                  "headerFamily": "json",
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/transfers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "transfers"
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "X-Customer-Id",
+                    "value": "string"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "string"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "*/*"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"fromAccountId\": \"6fac2e99-b61a-19b0-027c-9efd59e5ed73\",\n  \"toAccountId\": \"0b2fd067-b0ee-6a07-173d-d03784846596\",\n  \"amountCents\": 2843\n}",
+                  "options": {
+                    "raw": {
+                      "headerFamily": "json",
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/transfers",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "transfers"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "*/*"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"id\": \"3a56a2bc-876d-e147-d9e8-c08cf78df203\",\n  \"fromAccountId\": \"70df88e6-57ec-7c6e-7c20-a9048413d9f7\",\n  \"toAccountId\": \"49963c04-762b-907f-56e1-2a1501d040ad\",\n  \"amountCents\": 7617,\n  \"status\": \"string\",\n  \"createdAt\": \"2016-05-14T12:13:00.926Z\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "customers",
+      "item": [
+        {
+          "name": "{customerId}",
+          "item": [
+            {
+              "name": "accounts",
+              "item": [
+                {
+                  "name": "open",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Accept",
+                        "value": "*/*"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"type\": \"string\",\n  \"currency\": \"string\"\n}",
+                      "options": {
+                        "raw": {
+                          "headerFamily": "json",
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{baseUrl}}/customers/:customerId/accounts",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "customers",
+                        ":customerId",
+                        "accounts"
+                      ],
+                      "variable": [
+                        {
+                          "key": "customerId",
+                          "value": "ee3b3736-a524-8247-842d-313fc29d4705"
+                        }
+                      ]
+                    }
+                  },
+                  "response": [
+                    {
+                      "name": "Created",
+                      "originalRequest": {
+                        "method": "POST",
+                        "header": [
+                          {
+                            "key": "Content-Type",
+                            "value": "application/json"
+                          },
+                          {
+                            "key": "Accept",
+                            "value": "*/*"
+                          }
+                        ],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n  \"type\": \"string\",\n  \"currency\": \"string\"\n}",
+                          "options": {
+                            "raw": {
+                              "headerFamily": "json",
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{baseUrl}}/customers/:customerId/accounts",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "customers",
+                            ":customerId",
+                            "accounts"
+                          ],
+                          "variable": [
+                            {
+                              "key": "customerId",
+                              "value": "ee3b3736-a524-8247-842d-313fc29d4705"
+                            }
+                          ]
+                        }
+                      },
+                      "status": "Created",
+                      "code": 201,
+                      "_postman_previewlanguage": "text",
+                      "header": [
+                        {
+                          "key": "Content-Type",
+                          "value": "*/*"
+                        }
+                      ],
+                      "cookie": [],
+                      "body": "{\n  \"id\": \"f723da61-cb5c-2219-312a-60d09c12139e\",\n  \"customerId\": \"777a4565-6a11-82fe-34e4-deacec31f67c\",\n  \"type\": \"string\",\n  \"currency\": \"string\",\n  \"status\": \"string\",\n  \"balanceCents\": 4856\n}"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "{id}",
+          "item": [
+            {
+              "name": "kyc",
+              "item": [
+                {
+                  "name": "approve",
+                  "item": [
+                    {
+                      "name": "approve",
+                      "request": {
+                        "method": "PATCH",
+                        "header": [
+                          {
+                            "key": "Accept",
+                            "value": "*/*"
+                          }
+                        ],
+                        "url": {
+                          "raw": "{{baseUrl}}/customers/:id/kyc/approve",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "customers",
+                            ":id",
+                            "kyc",
+                            "approve"
+                          ],
+                          "variable": [
+                            {
+                              "key": "id",
+                              "value": "ee3b3736-a524-8247-842d-313fc29d4705"
+                            }
+                          ]
+                        }
+                      },
+                      "response": [
+                        {
+                          "name": "OK",
+                          "originalRequest": {
+                            "method": "PATCH",
+                            "header": [
+                              {
+                                "key": "Accept",
+                                "value": "*/*"
+                              }
+                            ],
+                            "url": {
+                              "raw": "{{baseUrl}}/customers/:id/kyc/approve",
+                              "host": [
+                                "{{baseUrl}}"
+                              ],
+                              "path": [
+                                "customers",
+                                ":id",
+                                "kyc",
+                                "approve"
+                              ],
+                              "variable": [
+                                {
+                                  "key": "id",
+                                  "value": "ee3b3736-a524-8247-842d-313fc29d4705"
+                                }
+                              ]
+                            }
+                          },
+                          "status": "OK",
+                          "code": 200,
+                          "_postman_previewlanguage": "text",
+                          "header": [
+                            {
+                              "key": "Content-Type",
+                              "value": "*/*"
+                            }
+                          ],
+                          "cookie": [],
+                          "body": "{\n  \"id\": \"48f3b63e-0be6-89ec-f622-f3c56b86330e\",\n  \"status\": \"string\"\n}"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "get",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "*/*"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/customers/:id",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "customers",
+                    ":id"
+                  ],
+                  "variable": [
+                    {
+                      "key": "id",
+                      "value": "ee3b3736-a524-8247-842d-313fc29d4705"
+                    }
+                  ]
+                }
+              },
+              "response": [
+                {
+                  "name": "OK",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "*/*"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{baseUrl}}/customers/:id",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "customers",
+                        ":id"
+                      ],
+                      "variable": [
+                        {
+                          "key": "id",
+                          "value": "ee3b3736-a524-8247-842d-313fc29d4705"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "text",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "*/*"
+                    }
+                  ],
+                  "cookie": [],
+                  "body": "{\n  \"id\": \"48f3b63e-0be6-89ec-f622-f3c56b86330e\",\n  \"status\": \"string\"\n}"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "register",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "*/*"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"string\",\n  \"email\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "headerFamily": "json",
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/customers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customers"
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "*/*"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"fullName\": \"string\",\n  \"email\": \"string\"\n}",
+                  "options": {
+                    "raw": {
+                      "headerFamily": "json",
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/customers",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "customers"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "*/*"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"id\": \"48f3b63e-0be6-89ec-f622-f3c56b86330e\",\n  \"status\": \"string\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "healthz",
+      "item": [
+        {
+          "name": "healthz",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "*/*"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/healthz",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "healthz"
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "*/*"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/healthz",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "healthz"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "*/*"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"key_0\": \"string\",\n  \"key_1\": \"string\",\n  \"key_2\": \"string\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "accounts",
+      "item": [
+        {
+          "name": "{accountId}",
+          "item": [
+            {
+              "name": "ledger",
+              "item": [
+                {
+                  "name": "ledger",
+                  "request": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "X-Customer-Id",
+                        "value": "string"
+                      },
+                      {
+                        "key": "Accept",
+                        "value": "*/*"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{baseUrl}}/accounts/:accountId/ledger?page=0&size=10",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "accounts",
+                        ":accountId",
+                        "ledger"
+                      ],
+                      "query": [
+                        {
+                          "key": "page",
+                          "value": "0"
+                        },
+                        {
+                          "key": "size",
+                          "value": "10"
+                        }
+                      ],
+                      "variable": [
+                        {
+                          "key": "accountId",
+                          "value": "ee3b3736-a524-8247-842d-313fc29d4705"
+                        }
+                      ]
+                    }
+                  },
+                  "response": [
+                    {
+                      "name": "OK",
+                      "originalRequest": {
+                        "method": "GET",
+                        "header": [
+                          {
+                            "key": "X-Customer-Id",
+                            "value": "string"
+                          },
+                          {
+                            "key": "Accept",
+                            "value": "*/*"
+                          }
+                        ],
+                        "url": {
+                          "raw": "{{baseUrl}}/accounts/:accountId/ledger?page=0&size=10",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "accounts",
+                            ":accountId",
+                            "ledger"
+                          ],
+                          "query": [
+                            {
+                              "key": "page",
+                              "value": "0"
+                            },
+                            {
+                              "key": "size",
+                              "value": "10"
+                            }
+                          ],
+                          "variable": [
+                            {
+                              "key": "accountId",
+                              "value": "ee3b3736-a524-8247-842d-313fc29d4705"
+                            }
+                          ]
+                        }
+                      },
+                      "status": "OK",
+                      "code": 200,
+                      "_postman_previewlanguage": "text",
+                      "header": [
+                        {
+                          "key": "Content-Type",
+                          "value": "*/*"
+                        }
+                      ],
+                      "cookie": [],
+                      "body": "{\n  \"page\": 8497,\n  \"size\": 3971,\n  \"totalElements\": 3704,\n  \"totalPages\": 4467,\n  \"items\": [\n    {\n      \"id\": \"76c0a726-0f45-5cb8-79c0-c9846db02063\",\n      \"direction\": \"string\",\n      \"amountCents\": 8061,\n      \"description\": \"string\",\n      \"createdAt\": \"1956-03-25T20:58:27.853Z\"\n    },\n    {\n      \"id\": \"808d0aa5-a02b-8f93-b1c7-4f3507572a2c\",\n      \"direction\": \"string\",\n      \"amountCents\": 2492,\n      \"description\": \"string\",\n      \"createdAt\": \"1976-06-30T14:07:30.514Z\"\n    }\n  ]\n}"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "balance",
+              "item": [
+                {
+                  "name": "balance",
+                  "request": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "X-Customer-Id",
+                        "value": "string"
+                      },
+                      {
+                        "key": "Accept",
+                        "value": "*/*"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{baseUrl}}/accounts/:accountId/balance",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "accounts",
+                        ":accountId",
+                        "balance"
+                      ],
+                      "variable": [
+                        {
+                          "key": "accountId",
+                          "value": "ee3b3736-a524-8247-842d-313fc29d4705"
+                        }
+                      ]
+                    }
+                  },
+                  "response": [
+                    {
+                      "name": "OK",
+                      "originalRequest": {
+                        "method": "GET",
+                        "header": [
+                          {
+                            "key": "X-Customer-Id",
+                            "value": "string"
+                          },
+                          {
+                            "key": "Accept",
+                            "value": "*/*"
+                          }
+                        ],
+                        "url": {
+                          "raw": "{{baseUrl}}/accounts/:accountId/balance",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "accounts",
+                            ":accountId",
+                            "balance"
+                          ],
+                          "variable": [
+                            {
+                              "key": "accountId",
+                              "value": "ee3b3736-a524-8247-842d-313fc29d4705"
+                            }
+                          ]
+                        }
+                      },
+                      "status": "OK",
+                      "code": 200,
+                      "_postman_previewlanguage": "text",
+                      "header": [
+                        {
+                          "key": "Content-Type",
+                          "value": "*/*"
+                        }
+                      ],
+                      "cookie": [],
+                      "body": "{\n  \"accountId\": \"63ce9c50-8afc-7061-0573-2e08cff38928\",\n  \"balanceCents\": 5885\n}"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8081"
+    }
+  ]
+}
