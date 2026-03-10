@@ -41,1570 +41,1119 @@ MONTRÉAL, LE 8 MARS 2026
 
 <div style="page-break-before: always;"></div>
 
-# BrokerX Banking API — Implémentation des cas d'utilisation
+# Arc42 - BrokerX Banking API
 
-Ce projet implémente les premières fonctionnalités du système bancaire BrokerX sous forme d'une API REST développée avec **Java, Spring Boot, PostgreSQL et Docker**.
+# 1. Introduction et objectifs
 
-L’objectif de cette phase est de mettre en place le processus d’onboarding d’un client ainsi que la création d’un compte bancaire.
+## 1.1 Objectifs métier
 
-Cas d’utilisation implémentés :
+Le projet **BrokerX Banking API** vise à concevoir une plateforme bancaire en ligne destinée aux investisseurs particuliers.
 
-- UC-01 — Enregistrement d’un client
-- UC-02 — Vérification KYC
-- UC-03 — Ouverture d’un compte bancaire
-- UC-04 — Consultation du solde et de l’historique
-- UC-05 — Virement entre comptes (idempotent)
+Dans la **Phase 1**, l’objectif est de livrer un **MVP fonctionnel** permettant de démontrer les capacités principales du système bancaire via une API REST sécurisée.
 
-La base de données est exécutée dans un conteneur **PostgreSQL Docker (`brokerx_db`)**.
+Les fonctionnalités principales implémentées sont :
 
----
+- **UC-01 : Enregistrement d’un client**
+- **UC-02 : Vérification KYC**
+- **UC-03 : Ouverture d’un compte bancaire**
+- **UC-04 : Consultation du solde et de l’historique**
+- **UC-05 : Virement entre comptes**
 
-# UC-01 — Enregistrement d’un client
+Ces fonctionnalités constituent les bases du système et permettent de démontrer la faisabilité technique d’une plateforme bancaire moderne tout en respectant certaines exigences de sécurité et de traçabilité.
 
-### Acteur principal
-Client
+Objectifs principaux :
 
-### Acteurs secondaires
-Service Clients
-
-### But
-Créer un nouveau client dans le système.
-
-### Préconditions
-Aucune.
-
-### Déclencheur
-Un client soumet ses informations personnelles.
-
-### Scénario nominal
-
-1. Le client envoie une requête **POST /customers** avec son nom complet et son email.
-2. Le système valide les informations.
-3. Le système crée un client avec un **UUID unique**.
-4. Le statut **KYC est initialisé à PENDING**.
-5. Le système retourne l'identifiant du client.
-
-### Commande de test
-
-```bash
-curl -s -u admin:admin -X POST http://localhost:8081/customers \
--H "Content-Type: application/json" \
--d '{"fullName":"John Doe","email":"john.doe@email.com"}'
-```
-
-### Réponse
-
-```json
-{
-  "id": "UUID",
-  "status": "PENDING"
-}
-```
-
-### Postconditions
-
-Un client est créé dans la base de données avec :
-
-```
-kyc_status = PENDING
-```
+- Mettre en place une **architecture claire et maintenable**
+- Fournir une **API REST sécurisée**
+- Assurer la **traçabilité des opérations bancaires**
+- Préparer le système pour une **évolution vers une architecture distribuée**
 
 ---
 
-# UC-02 — Vérification KYC
+## 1.2 Aperçu des exigences
 
-### Acteur principal
-Service de conformité
+La Phase 1 vise à livrer un système capable de supporter les opérations bancaires de base suivantes :
 
-### Acteurs secondaires
-Service Clients, Service d’audit
+- Création d’un client dans le système bancaire
+- Validation de l’identité du client via un processus **KYC**
+- Création d’un compte bancaire pour un client validé
+- Consultation du solde et de l’historique des transactions
+- Réalisation d’un **virement entre comptes**
 
-### But
-Vérifier l’identité du client afin de lui permettre d’utiliser le système bancaire.
+Motivation :
 
-### Préconditions
-
-- Le client doit exister.
-- Le client doit avoir un statut **KYC = PENDING**.
-
-### Déclencheur
-Le service de conformité approuve le client.
-
-### Scénario nominal
-
-1. Le système reçoit une requête **PATCH /customers/{id}/kyc/approve**.
-2. Le système vérifie que le client existe.
-3. Le système met à jour le statut KYC vers **APPROVED**.
-4. Une entrée est ajoutée dans la table **audit_log** avec l’action **KYC_APPROVED**.
-5. Le système retourne le nouveau statut.
-
-### Commande de test
-
-```bash
-curl -i -X PATCH -u admin:admin \
-"http://localhost:8081/customers/{id}/kyc/approve"
-```
-
-### Réponse
-
-```json
-{
-  "id": "UUID",
-  "status": "APPROVED"
-}
-```
-
-### Postconditions
-
-Le client possède maintenant :
-
-```
-kyc_status = APPROVED
-```
-
-et peut utiliser les fonctionnalités bancaires.
+- Respect des exigences **KYC** pour la création de clients
+- Gestion sécurisée des comptes bancaires
+- Traçabilité complète des opérations financières
+- Mise en place d’une architecture conteneurisée avec **Docker**
+- Mise en place d’un pipeline **CI/CD** pour automatiser la validation du projet
 
 ---
 
-# UC-03 — Ouverture d’un compte bancaire
+## 1.3 Objectifs de qualité
 
-### Acteur principal
-Client
+Le système doit respecter plusieurs objectifs de qualité afin d’assurer sa robustesse et sa maintenabilité.
 
-### Acteurs secondaires
-Service Comptes, Service d’audit
-
-### But
-Créer un compte bancaire afin de permettre les dépôts et les virements.
-
-### Préconditions
-
-- Le client doit être authentifié.
-- Le client doit être **KYC VERIFIED (APPROVED)**.
-
-### Déclencheur
-Le client demande l’ouverture d’un compte.
-
-### Scénario nominal
-
-1. Le client envoie une requête **POST /customers/{customerId}/accounts**.
-2. Le système valide :
-   - le type de compte (CHECKING ou SAVINGS)
-   - la devise (CAD ou USD).
-3. Le système crée un nouveau compte avec :
-   - statut **ACTIVE**
-   - solde initial **0**.
-4. Une entrée d’audit **ACCOUNT_OPENED** est créée dans **audit_log**.
-5. Le système retourne l’identifiant et les informations du compte.
-
-### Commande de test
-
-```bash
-curl -i -u admin:admin -X POST \
-"http://localhost:8081/customers/{customerId}/accounts" \
--H "Content-Type: application/json" \
--d '{"type":"CHECKING","currency":"CAD"}'
-```
-
-### Réponse
-
-```json
-{
-  "id": "ACCOUNT_ID",
-  "customerId": "CUSTOMER_ID",
-  "type": "CHECKING",
-  "currency": "CAD",
-  "status": "ACTIVE",
-  "balanceCents": 0
-}
-```
-
-### Postconditions
-
-Un compte actif est créé dans la base de données :
-
-```
-status = ACTIVE
-balance_cents = 0
-```
-
-Le compte est maintenant prêt pour effectuer des transactions.
+| Priorité | Objectif | Scénario concret |
+|---------|---------|----------------|
+| Must | Performance | Les requêtes API (création client, consultation solde) doivent répondre en moins d’une seconde dans un environnement normal. |
+| Must | Sécurité | Les accès à l’API sont protégés par authentification et les opérations critiques sont journalisées. |
+| Must | Fiabilité | Une erreur lors d’un virement entraîne un rollback complet afin de garantir la cohérence des données. |
+| Should | Observabilité | Toutes les actions importantes sont enregistrées dans les logs avec un horodatage. |
+| Could | Évolutivité | L’architecture doit permettre une évolution vers une architecture microservices. |
 
 ---
 
-# UC-04 — Consultation du solde et de l’historique
+## 1.4 Parties prenantes
 
-### Acteur principal
-Client
+| Rôle / Organisation | Description | Attentes vis-à-vis de l’architecture |
+|--------------------|-------------|-------------------------------------|
+| Clients de la banque | Utilisateurs finaux | Accès simple et sécurisé aux services bancaires |
+| Équipe de développement | Étudiants LOG430 | Architecture claire, maintenable et testable |
+| Architecte logiciel | Responsable de l’architecture | Documentation des décisions architecturales |
+| Enseignant / Correcteur | Professeur LOG430 | Documentation complète et reproductible |
+| BrokerX (organisation fictive) | Commanditaire du système | Respect des contraintes bancaires et réglementaires |
+| Autorités réglementaires | Régulateurs financiers | Vérification KYC et auditabilité des transactions |
 
-### Acteurs secondaires
-Service Comptes, Observabilité
+# 2. Contraintes architecturales
 
-### But
-Permettre au client de consulter le **solde actuel** et **l’historique des transactions** d’un compte.
+## 2.1 Contraintes techniques
 
-### Préconditions
+Le système doit respecter plusieurs contraintes techniques imposées par le projet :
 
-- Le client doit être authentifié.
-- Le compte doit appartenir au client.
+- **Langage principal** : Java
+- **Framework** : Spring Boot
+- **Architecture applicative** : séparation claire entre les couches Domain, Application et Infrastructure
+- **API** : exposition d’une API RESTful avec routes versionnées et codes HTTP standards
+- **Persistance** : base de données relationnelle PostgreSQL
+- **Conteneurisation** : utilisation de Docker et docker-compose pour déployer les services
+- **CI/CD** : pipeline automatisé incluant build, tests et validation du projet
 
-Dans cette phase du projet, l’authentification est réalisée via **Basic Auth**.  
-L’identifiant du client est transmis via le header :
-
-```
-X-Customer-Id
-```
-
-Ce mécanisme simule l’identité du client avant l’introduction d’un **JWT** dans les prochaines phases.
-
-### Déclencheur
-
-Le client souhaite consulter le solde ou l’historique de son compte.
-
-### Scénario nominal
-
-1. Le client envoie une requête **GET /accounts/{accountId}/balance** ou **GET /accounts/{accountId}/ledger**.
-2. Le système valide l’authentification.
-3. Le système récupère le **customerId** via le header `X-Customer-Id`.
-4. Le système vérifie que le compte existe.
-5. Le système vérifie que le compte appartient au client.
-6. Le système retourne le solde ou l’historique paginé des transactions.
+Le système doit également maintenir une **séparation claire entre la logique métier et les couches d’infrastructure**, afin de faciliter la maintenance et l’évolution du système.
 
 ---
 
-### Commande de test — Consulter le solde
+## 2.2 Contraintes métier et réglementaires
 
-```bash
-curl -u admin:admin \
--H "X-Customer-Id: {customerId}" \
-http://localhost:8081/accounts/{accountId}/balance
-```
+Le domaine bancaire impose certaines contraintes fonctionnelles et réglementaires :
 
-### Réponse
+- **Vérification KYC obligatoire** avant l’ouverture d’un compte bancaire
+- **Traçabilité des transactions financières**
+- **Audit des opérations critiques** (création de compte, virement, validation KYC)
+- **Cohérence transactionnelle** lors des opérations financières
 
-```json
-{
-  "accountId": "ACCOUNT_ID",
-  "balanceCents": 0
-}
-```
+Ces contraintes garantissent la conformité du système aux exigences de sécurité et de régulation du secteur bancaire.
 
 ---
 
-### Commande de test — Consulter l’historique
+## 2.3 Contraintes organisationnelles
 
-```bash
-curl -u admin:admin \
--H "X-Customer-Id: {customerId}" \
-"http://localhost:8081/accounts/{accountId}/ledger?page=0&size=10"
-```
+Le projet est réalisé dans le cadre du cours **LOG430 – Architecture logicielle**.
 
-### Réponse
+Les contraintes organisationnelles incluent :
 
-```json
-{
-  "page": 0,
-  "size": 10,
-  "totalElements": 0,
-  "totalPages": 0,
-  "items": []
-}
-```
----
+- Livraison du **MVP pour la Phase 1**
+- Documentation de l’architecture avec **Arc42 (sections 1–8)**
+- Présentation des vues architecturales selon le modèle **4+1**
+- Documentation des décisions architecturales via **ADR (Architecture Decision Records)**
 
-# UC-05 — Virement entre comptes (Idempotent + Audit)
-
-### Acteur principal
-Client
-
-### Acteurs secondaires
-Service Transferts, Base de données (transactions), Audit / Compliance
-
-### But
-Effectuer un virement entre deux comptes tout en garantissant l’absence de double débit grâce à une **Idempotency-Key**.
+Le projet doit être **facilement reproductible**, permettant l’installation et l’exécution du système via Docker.
 
 ---
 
-# Préconditions
+## 2.4 Contraintes de performance et disponibilité
 
-- Client authentifié
-- Compte source actif
-- Solde suffisant
-- Idempotency-Key fournie dans la requête
+Bien que le système soit un prototype académique, certaines contraintes de qualité doivent être respectées :
 
----
+- **Temps de réponse des API inférieur à 1 seconde** dans des conditions normales
+- **Disponibilité minimale du service** pendant l’exécution des tests
+- **Journalisation des requêtes et erreurs**
+- **Observabilité du système** via logs structurés
 
-# Déclencheur
+Ces contraintes permettent de démontrer la robustesse et la fiabilité de l’architecture proposée.
 
-Le client envoie une requête **POST /transfers** pour transférer de l’argent d’un compte source vers un compte destination.
+# 3. Portée et contexte système
 
----
+Le périmètre de la **Phase 1** est limité à un prototype permettant de démontrer les fonctionnalités
+essentielles d’un système bancaire en ligne.
 
-# Scénario nominal
+Les fonctionnalités principales couvertes sont :
 
-1. Le client envoie une requête **POST /transfers** contenant :
-   - `fromAccountId`
-   - `toAccountId`
-   - `amountCents`
-   - `Idempotency-Key` dans le header.
+- **UC-01 : Enregistrement d’un client**
+- **UC-02 : Vérification KYC**
+- **UC-03 : Ouverture d’un compte bancaire**
+- **UC-04 : Consultation du solde et de l’historique**
+- **UC-05 : Virement entre comptes**
 
-2. Le système vérifie si un transfert avec cette **Idempotency-Key** existe déjà.
+Hors périmètre de la Phase 1 :
 
-3. Si un transfert existe déjà :
-   - Le système retourne le transfert existant (même `transfer_id`).
+- paiements externes
+- gestion de cartes bancaires
+- intégration avec des systèmes bancaires réels
+- services financiers avancés
 
-4. Sinon :
-   - Le système valide :
-     - que le montant est supérieur à 0
-     - que les comptes existent
-     - que le compte source appartient au client
-     - que le solde est suffisant
+Ces fonctionnalités pourront être ajoutées dans les phases ultérieures du système.
 
-5. Le système exécute une **transaction DB** :
-   - crée un `transfer` avec statut **COMPLETED**
-   - écrit deux `ledger_entries` :
-     - **DEBIT** sur le compte source
-     - **CREDIT** sur le compte destination
-   - met à jour les soldes des comptes
-   - écrit une entrée `audit_log` **TRANSFER_CREATED**
-
-6. Le système retourne la confirmation du virement.
+Le système est considéré comme une **boîte noire** recevant des requêtes via une API REST et orchestrant
+les opérations internes nécessaires pour traiter les demandes des utilisateurs.
 
 ---
 
-# Commandes de test — Création des clients
+# 3.1 Contexte métier
 
-```bash
-CID_A=$(curl -s -u admin:admin -X POST http://localhost:8081/customers \
-  -H "Content-Type: application/json" \
-  -d '{"fullName":"UC05 Client A","email":"uc05a@test.com"}' | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
+Acteurs externes :
 
-curl -s -u admin:admin -X PATCH "http://localhost:8081/customers/$CID_A/kyc/approve"
-
-CID_B=$(curl -s -u admin:admin -X POST http://localhost:8081/customers \
-  -H "Content-Type: application/json" \
-  -d '{"fullName":"UC05 Client B","email":"uc05b@test.com"}' | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
-
-curl -s -u admin:admin -X PATCH "http://localhost:8081/customers/$CID_B/kyc/approve"
-```
-
----
-
-# Commandes de test — Création des comptes
-
-```bash
-AID_SRC=$(curl -s -u admin:admin -X POST "http://localhost:8081/customers/$CID_A/accounts" \
-  -H "Content-Type: application/json" \
-  -d '{"currency":"CAD","type":"CHECKING"}' | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
-
-AID_DST=$(curl -s -u admin:admin -X POST "http://localhost:8081/customers/$CID_B/accounts" \
-  -H "Content-Type: application/json" \
-  -d '{"currency":"CAD","type":"CHECKING"}' | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
-```
-
----
-
-# Initialisation du solde du compte source
-
-```bash
-docker exec -i brokerx_db psql -U brokerx -d brokerx -c \
-"UPDATE accounts SET balance_cents = 10000 WHERE id = '$AID_SRC';"
-```
-
----
-
-# Commande de test — Virement
-
-```bash
-IDEM_KEY="uc05-001"
-
-curl -s -u admin:admin \
-  -H "X-Customer-Id: $CID_A" \
-  -H "Idempotency-Key: $IDEM_KEY" \
-  -H "Content-Type: application/json" \
-  -X POST http://localhost:8081/transfers \
-  -d "{\"fromAccountId\":\"$AID_SRC\",\"toAccountId\":\"$AID_DST\",\"amountCents\":2500}"
-```
-
----
-
-# Réponse
-
-```json
-{
-  "id": "fe84c117-799c-40ef-996a-e524a2583a47",
-  "fromAccountId": "2eb490dc-64b1-4379-8d9e-cddb61b363b4",
-  "toAccountId": "4cbef0f3-45fd-434b-a587-2d2546861d5a",
-  "amountCents": 2500,
-  "status": "COMPLETED",
-  "createdAt": "2026-03-05T22:10:34.707530Z"
-}
-```
-
----
-
-# Test d’idempotence
-
-La même requête avec la même **Idempotency-Key** retourne le **même transfer_id**.
-
-```bash
-curl -s -u admin:admin \
-  -H "X-Customer-Id: $CID_A" \
-  -H "Idempotency-Key: uc05-001" \
-  -H "Content-Type: application/json" \
-  -X POST http://localhost:8081/transfers \
-  -d "{\"fromAccountId\":\"$AID_SRC\",\"toAccountId\":\"$AID_DST\",\"amountCents\":2500}"
-```
-
----
-
-# Vérification des soldes
-
-```bash
-curl -s -u admin:admin -H "X-Customer-Id: $CID_A" \
-"http://localhost:8081/accounts/$AID_SRC/balance"
-
-curl -s -u admin:admin -H "X-Customer-Id: $CID_B" \
-"http://localhost:8081/accounts/$AID_DST/balance"
-```
-
-### Réponse
-
-```json
-{
-  "accountId": "2eb490dc-64b1-4379-8d9e-cddb61b363b4",
-  "balanceCents": 7500
-}
-```
-
-```json
-{
-  "accountId": "4cbef0f3-45fd-434b-a587-2d2546861d5a",
-  "balanceCents": 2500
-}
-```
-
----
-
-# Vérification du ledger
-
-```bash
-curl -s -u admin:admin -H "X-Customer-Id: $CID_A" \
-"http://localhost:8081/accounts/$AID_SRC/ledger?page=0&size=10"
-
-curl -s -u admin:admin -H "X-Customer-Id: $CID_B" \
-"http://localhost:8081/accounts/$AID_DST/ledger?page=0&size=10"
-```
-
-### Réponse
-
-```json
-{
-  "page": 0,
-  "size": 10,
-  "totalElements": 1,
-  "totalPages": 1,
-  "items": [
-    {
-      "direction": "DEBIT",
-      "amountCents": 2500,
-      "description": "TRANSFER fe84c117-799c-40ef-996a-e524a2583a47"
-    }
-  ]
-}
-```
-
-```json
-{
-  "page": 0,
-  "size": 10,
-  "totalElements": 1,
-  "totalPages": 1,
-  "items": [
-    {
-      "direction": "CREDIT",
-      "amountCents": 2500,
-      "description": "TRANSFER fe84c117-799c-40ef-996a-e524a2583a47"
-    }
-  ]
-}
-```
-
----
-
-# Vérification de l’audit
-
-```bash
-docker exec -i brokerx_db psql -U brokerx -d brokerx -c \
-"SELECT action, entity_type, entity_id FROM audit_log ORDER BY created_at DESC LIMIT 5;"
-```
-
-### Résultat attendu
-
-```
-TRANSFER_CREATED | TRANSFER | fe84c117-799c-40ef-996a-e524a2583a47
-```
-
----
-
-# Extensions / Variantes — UC-01 (Enregistrement d’un client)
-
-### E1 — Données invalides
-
-Si les informations fournies ne respectent pas les contraintes de validation  
-(ex. `fullName` vide ou trop court, email invalide) :
-
-```
-HTTP 400
-VALIDATION_ERROR
-```
-
-Exemple :
-
-```bash
-curl -i -u admin:admin -X POST http://localhost:8081/customers \
--H "Content-Type: application/json" \
--d '{"fullName":"","email":"invalid-email"}'
-```
-
----
-
-### E2 — Client déjà existant
-
-Si un client existe déjà avec le même email :
-
-```
-HTTP 409
-CUSTOMER_ALREADY_EXISTS
-```
-
-Exemple :
-
-```bash
-curl -i -u admin:admin -X POST http://localhost:8081/customers \
--H "Content-Type: application/json" \
--d '{"fullName":"John Doe","email":"john.doe@email.com"}'
-```
-
----
-
-# Extensions / Variantes — UC-02 (Vérification KYC)
-
-### E1 — Client introuvable
-
-Si l’identifiant `{id}` ne correspond à aucun client dans le système :
-
-```
-HTTP 404
-CUSTOMER_NOT_FOUND
-```
-
-Exemple :
-
-```bash
-curl -i -X PATCH -u admin:admin \
-"http://localhost:8081/customers/00000000-0000-0000-0000-000000000000/kyc/approve"
-```
-
----
-
-### E2 — Statut KYC invalide
-
-Si le client n’est pas dans l’état **PENDING** (ex. déjà APPROVED) :
-
-```
-HTTP 409
-INVALID_KYC_STATE
-```
-
-Exemple :
-
-```bash
-curl -i -X PATCH -u admin:admin \
-"http://localhost:8081/customers/{id}/kyc/approve"
-```
-
----
-
-### E3 — Client non autorisé
-
-Si l’utilisateur n’est pas authentifié correctement :
-
-```
-HTTP 401
-UNAUTHORIZED
-```
-
-Exemple :
-
-```bash
-curl -i -X PATCH \
-"http://localhost:8081/customers/{id}/kyc/approve"
-```
-
----
-
-# Extensions / Variantes — UC-03 (Ouverture d’un compte bancaire)
-
-## E1 — Devise non supportée
-
-Si la devise demandée n’est pas supportée par le système :
-
-```
-HTTP 400
-UNSUPPORTED_CURRENCY
-```
-
-Exemple :
-
-```bash
-curl -i -u admin:admin -X POST \
-"http://localhost:8081/customers/{customerId}/accounts" \
--H "Content-Type: application/json" \
--d '{"type":"CHECKING","currency":"EUR"}'
-```
-
----
-
-## E2 — Client non autorisé / KYC manquant
-
-Si le client n’a pas encore passé la vérification **KYC** :
-
-```
-HTTP 403
-KYC_REQUIRED
-```
-
-Exemple :
-
-```bash
-curl -i -u admin:admin -X POST \
-"http://localhost:8081/customers/{customerId}/accounts" \
--H "Content-Type: application/json" \
--d '{"type":"CHECKING","currency":"CAD"}'
-```
-
----
-
-# Extensions / Variantes — UC-04 (Consultation du solde et de l’historique)
-
-## E1 — Compte introuvable
-
-Si le compte demandé n’existe pas dans le système :
-
-```
-HTTP 404
-ACCOUNT_NOT_FOUND
-```
-
----
-
-## E2 — Accès interdit (ownership)
-
-Si le compte n’appartient pas au client :
-
-```
-HTTP 403
-FORBIDDEN_RESOURCE
-```
-
-Exemple :
-
-```bash
-curl -i -u admin:admin \
--H "X-Customer-Id: 11111111-1111-1111-1111-111111111111" \
-"http://localhost:8081/accounts/{accountId}/balance"
-```
-
----
-
-# Postconditions — UC-04
-
-Aucune donnée n’est modifiée.
-
-Le système retourne simplement :
-
-- le **solde du compte**
-- l’**historique des transactions**
-
-Les requêtes sont également observables via les **métriques HTTP exposées par Spring Actuator**.
-
----
-
-# Extensions / Variantes — UC-05 (Virement entre comptes)
-
-## E1 — Idempotency-Key absente
-
-Si la requête ne contient pas de **Idempotency-Key**, le système rejette la requête.
-
-```
-HTTP 400
-IDEMPOTENCY_KEY_REQUIRED
-```
-
-Exemple :
-
-```bash
-curl -i -u admin:admin \
-  -H "X-Customer-Id: $CID_A" \
-  -H "Content-Type: application/json" \
-  -X POST http://localhost:8081/transfers \
-  -d "{\"fromAccountId\":\"$AID_SRC\",\"toAccountId\":\"$AID_DST\",\"amountCents\":100}"
-```
-
----
-
-## E2 — Solde insuffisant
-
-Si le compte source ne possède pas un solde suffisant pour effectuer le virement :
-
-```
-HTTP 409
-INSUFFICIENT_FUNDS
-```
-
-Exemple :
-
-```bash
-curl -i -u admin:admin \
-  -H "X-Customer-Id: $CID_A" \
-  -H "Idempotency-Key: uc05-no-money" \
-  -H "Content-Type: application/json" \
-  -X POST http://localhost:8081/transfers \
-  -d "{\"fromAccountId\":\"$AID_SRC\",\"toAccountId\":\"$AID_DST\",\"amountCents\":99999999}"
-```
-
----
-
-## E3 — Compte destination invalide
-
-Si le compte destination n'existe pas :
-
-```
-HTTP 404
-ACCOUNT_NOT_FOUND
-```
-
-Exemple :
-
-```bash
-curl -i -u admin:admin \
-  -H "X-Customer-Id: $CID_A" \
-  -H "Idempotency-Key: uc05-bad-dst" \
-  -H "Content-Type: application/json" \
-  -X POST http://localhost:8081/transfers \
-  -d "{\"fromAccountId\":\"$AID_SRC\",\"toAccountId\":\"00000000-0000-0000-0000-000000000000\",\"amountCents\":100}"
-```
-
----
-
-# Postconditions — UC-05
-
-- Le virement est enregistré **une seule fois** grâce à l’**Idempotency-Key**.
-- Deux écritures sont ajoutées dans `ledger_entries` :
-  - **DEBIT** sur le compte source
-  - **CREDIT** sur le compte destination
-- Les soldes des comptes sont mis à jour.
-- Une entrée `audit_log` est créée :
-
-```
-TRANSFER_CREATED
-```
-
----
-
-## Domain Map
+- **Client** : crée un compte, consulte ses informations et effectue des virements
+- **Service KYC (simulé)** : vérifie l’identité des clients
+- **Système bancaire externe (simulé)** : pourrait valider certaines opérations financières dans une version future
 
 <p style="text-align: center;">
-  <img src="./domain-map.png" alt="Figure 6" width="600">
+  <img src="./Images/3.1_Diagram.png" alt="Figure 1" width="600">
   <br>
-  <em>Figure 1. Domain Map</em>
+  <em>Figure 1. Diagramme</em>
 </p>
 
-Les bounded contexts interagissent de la manière suivante :
-...
+| Partenaire externe | Entrées vers BrokerX | Sorties de BrokerX |
+|-------------------|----------------------|-------------------|
+| Client | Informations personnelles, demande d’ouverture de compte, demande de virement | Confirmation d’inscription, informations de compte, résultat du virement |
+| Service KYC (simulé) | Données personnelles du client | Résultat de la validation KYC |
+| Système bancaire externe (futur) | Demande de transaction | Confirmation ou rejet de la transaction |
 
 ---
 
-## Modèle de données (ER simplifié)
+# 3.2 Contexte technique
 
-<p style="text-align: center;">
-  <img src="./er-diagram.png" alt="Figure 6" width="600">
-  <br>
-  <em>Figure 2. ER Diagram</em>
-</p>
+Le système BrokerX interagit avec les utilisateurs et services externes via plusieurs interfaces techniques.
 
-Le modèle relationnel minimal de la phase 1 est structuré autour de cinq tables principales.
-...
+| Partenaire externe | Canal / Protocole | Usage principal |
+|-------------------|------------------|----------------|
+| Client | HTTP(S) / REST API | Création de client, consultation des comptes, virements |
+| Service KYC (simulé) | Service interne | Validation de l’identité des clients |
+| Base de données PostgreSQL | Connexion JDBC | Stockage des clients, comptes et transactions |
+
+Les interactions principales utilisent :
+
+- **HTTP(S) REST** pour les opérations bancaires
+- **JSON** comme format d’échange de données
+- **PostgreSQL** pour la persistance des données
+
+Cette architecture permet une **séparation claire entre l’API, la logique métier et la couche de persistance**.
+
+# 4. Stratégie de solution
+
+## Contenu
+
+La stratégie de solution présente les décisions architecturales fondamentales qui structurent le système **BrokerX Banking API**.
+
+Elle inclut :
+
+- les choix technologiques
+- les décisions de décomposition du système
+- les stratégies retenues pour atteindre les objectifs de qualité
+- les décisions organisationnelles liées au déploiement et au développement
+
+Ces décisions permettent de garantir que le système pourra répondre aux exigences fonctionnelles et aux objectifs de qualité définis dans le projet.
 
 ---
-# CI / CD
 
-Afin d'assurer la qualité et la reproductibilité des builds, un pipeline **CI/CD** a été mis en place avec **GitHub Actions**.
+## Motivation
 
-Ce pipeline est exécuté automatiquement à chaque **push** ou **pull request** sur le dépôt.
+Les décisions architecturales présentées constituent les fondations du système.  
+Elles permettent de guider la mise en œuvre technique tout en assurant la satisfaction des objectifs suivants :
 
-## Étapes du pipeline
-
-Le pipeline effectue les étapes suivantes :
-
-1. récupération du code source depuis le dépôt GitHub
-2. installation de **Java 17**
-3. compilation du projet avec **Maven**
-4. exécution des **tests unitaires**
-5. vérification que le projet peut être construit correctement
-
-La commande principale exécutée dans le pipeline est :
-
-```
-./mvnw -B clean verify
-```
-
-Cette commande permet de :
-
-- compiler le projet
-- exécuter les tests
-- vérifier l'intégrité du build
-
-Si une étape échoue, le pipeline échoue également, ce qui empêche l'intégration de code défectueux.
-
-## Objectif du CI/CD
-
-Le pipeline CI/CD permet de :
-
-- garantir que le projet compile correctement
-- détecter rapidement les erreurs
-- maintenir une base de code stable
-- automatiser la validation des modifications
-
-# Stratégie de mise en cache (Caching)
-
-Afin d'améliorer les performances du système BrokerX, une **mise en cache avec Redis** a été implémentée pour certaines requêtes fréquemment consultées.
-
-Le caching permet de réduire les accès répétés à la base de données et d'améliorer les temps de réponse pour les opérations de lecture.
-
-## Technologies utilisées
-
-La solution de caching repose sur les composants suivants :
-
-- **Redis** comme cache distribué en mémoire
-- **Spring Cache** pour l'abstraction de la mise en cache
-- **Spring Boot Redis (`spring-boot-starter-data-redis`)** pour l'intégration avec Redis
-
-Redis est exécuté comme **conteneur Docker** dans l'infrastructure du projet.
-
-Architecture simplifiée :
-
-```
-Client → API BrokerX (Spring Boot) → Redis Cache → PostgreSQL
-```
-
-## Endpoint mis en cache
-
-L'endpoint suivant a été sélectionné pour le caching :
-
-```
-GET /customers/{customerId}/accounts/{accountId}/balance
-```
-
-Cet endpoint est fréquemment utilisé par les clients pour consulter le solde de leur compte.
-
-La mise en cache est implémentée dans la couche service :
-
-```java
-@Cacheable(
-    value = "accountBalance",
-    key = "#accountId.toString() + ':' + #customerId.toString()"
-)
-public long getBalance(UUID accountId, UUID customerId) {
-    // lecture du solde depuis la base si absent du cache
-}
-```
-
-# Arc42 — BrokerX Phase 1
-
-## 1. Introduction et objectifs
-
-Le projet **BrokerX Phase 1** consiste à concevoir et implémenter une **API REST bancaire** destinée à des investisseurs particuliers.
-
-Cette première phase a pour objectifs de :
-
-- implémenter les principaux cas d’utilisation métier du domaine bancaire
-- exposer ces fonctionnalités via une API REST sécurisée
-- assurer la persistance des données avec PostgreSQL
-- garantir la cohérence transactionnelle des opérations critiques
-- tracer les actions sensibles via un journal d’audit
-- préparer l’évolution vers une architecture microservices plus complète
-
-Les cas d’utilisation implémentés dans cette phase sont :
-
-- **UC-01 — Enregistrement d’un client**
-- **UC-02 — Vérification KYC**
-- **UC-03 — Ouverture d’un compte bancaire**
-- **UC-04 — Consultation du solde et de l’historique**
-- **UC-05 — Virement entre comptes (idempotent)**
-
-Les qualités attendues pour cette phase sont :
-
-- **cohérence métier**
-- **intégrité des données**
-- **traçabilité**
-- **sécurité minimale**
-- **évolutivité**
+- **performance**
+- **sécurité**
+- **fiabilité**
 - **observabilité**
-- **performance acceptable sous charge modérée**
+- **évolutivité**
+
+Ces choix permettent également de maintenir une architecture claire et maintenable dans le cadre d’un MVP académique.
 
 ---
 
-## 2. Contraintes d’architecture
+## Décisions clés
 
-Le projet doit respecter plusieurs contraintes techniques et académiques.
+### Technologie
 
-### Contraintes technologiques
+Le système est développé en **Java avec le framework Spring Boot**.
 
-- utilisation de **Java**
-- utilisation de **Spring Boot**
-- persistance avec **PostgreSQL**
-- accès aux données via **Spring Data JPA**
-- sécurisation minimale via **Spring Security / Basic Auth**
-- exécution locale conteneurisée avec **Docker**
-- documentation API avec **Swagger / OpenAPI**
-- exposition des métriques via **Spring Boot Actuator** et **Micrometer**
-- supervision avec **Prometheus** et **Grafana**
-- possibilité d’intégrer **NGINX**, **KrakenD** et **Redis** dans l’architecture
+Ce choix permet de bénéficier :
 
-### Contraintes métier
-
-- un client doit être créé avec un statut **KYC = PENDING**
-- un client doit être **KYC APPROVED** avant d’ouvrir un compte
-- un compte doit appartenir à un seul client
-- un virement ne doit pas produire de double débit
-- chaque action critique doit être traçable via **audit_log**
-- les écritures comptables doivent être conservées dans **ledger_entries**
-
-### Contraintes de qualité
-
-- l’API doit retourner des erreurs cohérentes au format JSON
-- les transactions critiques doivent être atomiques
-- les performances doivent rester acceptables sous charge modérée
-- l’architecture doit pouvoir évoluer vers des **microservices**
-- l’authentification actuelle doit pouvoir être remplacée plus tard par **JWT**
+- d’un écosystème mature
+- d’une bonne intégration avec les API REST
+- d’une gestion simplifiée de la persistance via **JPA/Hibernate**
+- d’outils robustes pour la gestion des applications backend
 
 ---
 
-## 3. Contexte et périmètre du système
+### Style architectural
 
-### 3.1 Vue de contexte métier
+L’architecture adoptée suit une **séparation claire des responsabilités**, divisée en plusieurs couches :
 
-Le système BrokerX permet à un client bancaire :
+- **API / Controller** : exposition des endpoints REST
+- **Service / Application** : implémentation de la logique métier
+- **Repository / Infrastructure** : accès aux données
 
-- de s’enregistrer
-- de faire approuver son identité (KYC)
-- d’ouvrir un compte bancaire
-- de consulter son solde
-- de consulter l’historique de ses transactions
-- d’effectuer un virement entre comptes
-
-### 3.2 Acteurs externes
-
-- **Client**  
-  Utilise l’API pour gérer ses comptes, consulter son solde et effectuer des virements.
-
-- **Service de conformité / Administrateur**  
-  Approuve le statut KYC du client.
-
-- **PostgreSQL**  
-  Stocke les données métier : clients, comptes, virements, écritures comptables, audit.
-
-- **Prometheus**  
-  Collecte les métriques exposées par l’application.
-
-- **Grafana**  
-  Visualise les métriques et les dashboards.
-
-- **NGINX**  
-  Agit comme reverse proxy / load balancer devant plusieurs instances de l’application.
-
-- **KrakenD API Gateway**  
-  Peut centraliser l’accès aux routes de l’API dans une architecture plus distribuée.
-
-- **Redis**  
-  Peut servir de cache pour certaines requêtes de lecture fréquentes.
-
-### 3.3 Vue de contexte technique simplifiée
-
-```text
-Client / Admin
-      |
-      v
-BrokerX REST API (Spring Boot)
-      |
-      +--> PostgreSQL
-      +--> Redis (cache)
-      +--> /actuator/prometheus
-                |
-                v
-           Prometheus
-                |
-                v
-             Grafana
-```
-
-Dans les tests d’architecture avancés :
-
-```text
-Client
-  |
-  v
-NGINX / KrakenD
-  |
-  v
-brokerx_app1 / brokerx_app2
-  |
-  v
-PostgreSQL
-```
-
-## 4. Stratégie de solution
-
-La solution retenue repose sur une application **Spring Boot** organisée autour des concepts métier principaux du domaine bancaire.
-
-### Principes retenus
-
-- exposition d’une **API REST**
-- séparation entre **contrôleurs, services, repositories et entités**
-- persistance relationnelle avec **PostgreSQL**
-- gestion transactionnelle pour les opérations critiques
-- usage d’une **Idempotency-Key** pour les virements
-- traçabilité **append-only** avec `audit_log`
-- historisation comptable via `ledger_entries`
-- instrumentation applicative via **Actuator / Prometheus**
-- déploiement conteneurisé avec **Docker**
-
-### Orientation architecturale
-
-L’application suit une organisation modulaire proche d’un style :
-
-**REST + couche applicative + persistance relationnelle**
-
-avec séparation entre :
-
-- exposition HTTP
-- orchestration métier
-- persistance
-- aspects transversaux
-
-Cette approche permet de conserver un projet simple pour la **phase 1** tout en préparant une migration vers une **architecture microservices** lors des phases suivantes.
-
-### Bounded Contexts identifiés
-
-Les bounded contexts principaux sont :
-
-- **Customers / KYC**
-- **Accounts**
-- **Transfers**
-- **Audit / Ledger**
-
-Ces contextes structurent les responsabilités métier et facilitent la compréhension de l’architecture.
+Cette structure facilite la maintenabilité du système et permet de séparer la logique métier des détails techniques.
 
 ---
 
-## 5. Vue des blocs de construction
+### Persistance
 
-### 5.1 Vue de haut niveau
+La persistance des données est assurée par une **base de données relationnelle PostgreSQL**.
 
-Les principaux blocs fonctionnels du système sont les suivants :
+Les entités principales stockées dans la base de données incluent :
 
-#### Customers / KYC
+- clients
+- comptes bancaires
+- transactions
 
-Responsable de :
-
-- l’enregistrement des clients
-- la validation des informations de base
-- la gestion du statut **KYC**
-- l’approbation **KYC**
-
-#### Accounts
-
-Responsable de :
-
-- l’ouverture des comptes bancaires
-- la consultation du solde
-- la consultation du **ledger**
-- la vérification d’appartenance d’un compte à un client
-
-#### Transfers
-
-Responsable de :
-
-- la validation métier du virement
-- la vérification du solde disponible
-- la gestion de l’**idempotence**
-- l’exécution transactionnelle du transfert
-
-#### Ledger
-
-Responsable de :
-
-- l’écriture des mouvements de **débit et de crédit**
-- l’historique des opérations par compte
-
-#### Audit
-
-Responsable de :
-
-- la journalisation des actions critiques
-- la traçabilité des événements métier
-
-#### Security / Validation / Error Handling
-
-Responsable de :
-
-- l’authentification **Basic Auth**
-- la validation des entrées
-- le format standardisé des erreurs
-
-#### Observability
-
-Responsable de :
-
-- l’exposition des **métriques**
-- la supervision du **trafic, des erreurs, de la latence et de la saturation**
-
-### 5.2 Vue par structure de code
-
-Structure principale du projet Spring Boot :
-
-```
-src
-├── main
-│   └── java
-│       └── com/ashleyguevarra/phase1
-│
-│           ├── AshleyguevarraPhase1Log430Application.java
-│
-│           ├── config
-│           │   └── SecurityConfig.java
-│
-│           ├── api
-│           │   ├── ApiException.java
-│           │   ├── ApiExceptionHandler.java
-│           │   └── HealthController.java
-│
-│           ├── customer
-│           │   ├── Customer.java
-│           │   ├── CustomerRepository.java
-│           │   ├── RegisterCustomerService.java
-│           │   ├── ApproveKycService.java
-│           │   ├── KycController.java
-│           │   └── dto
-│           │       ├── RegisterCustomerRequest.java
-│           │       └── RegisterCustomerResponse.java
-│
-│           ├── account
-│           │   ├── Account.java
-│           │   ├── AccountRepository.java
-│           │   ├── OpenAccountService.java
-│           │   ├── ConsultAccountService.java
-│           │   ├── AccountController.java
-│           │   ├── AccountConsultController.java
-│           │   └── dto
-│           │       ├── BalanceResponse.java
-│           │       ├── OpenAccountRequest.java
-│           │       └── OpenAccountResponse.java
-│
-│           ├── transfer
-│           │   ├── Transfer.java
-│           │   ├── TransferRepository.java
-│           │   ├── TransferService.java
-│           │   ├── TransferController.java
-│           │   └── dto
-│           │       ├── CreateTransferRequest.java
-│           │       └── TransferResponse.java
-│
-│           ├── ledger
-│           │   ├── LedgerEntry.java
-│           │   ├── LedgerEntryRepository.java
-│           │   └── dto
-│           │       ├── LedgerEntryResponse.java
-│           │       └── LedgerPageResponse.java
-│
-│           └── audit
-│               ├── AuditLog.java
-│               └── AuditLogRepository.java
-│
-└── test
-    └── java
-        └── com/ashleyguevarra/phase1
-            └── AshleyguevarraPhase1Log430ApplicationTests.java
-```
-
-### 5.3 Relations entre blocs
-
-- **Customers / KYC** autorise ou non l’ouverture d’un compte  
-- **Accounts** fournit les comptes source et destination utilisés par **Transfers**  
-- **Transfers** produit des écritures dans **Ledger**  
-- **Customers / KYC**, **Accounts** et **Transfers** alimentent **Audit**  
-- **Observability** mesure l’activité HTTP et applicative sur l’ensemble du système  
+L’accès aux données est réalisé via **JPA/Hibernate**, ce qui simplifie la gestion des entités et des requêtes.
 
 ---
 
-# 6. Vue d’exécution
+### Observabilité et fiabilité
 
-## 6.1 Scénario — Enregistrement d’un client
+Le système implémente plusieurs mécanismes pour garantir la fiabilité :
 
-1. Le client envoie `POST /customers`
-2. Le contrôleur REST reçoit la requête
-3. Les données sont validées
-4. Le service crée un nouveau client avec un **UUID**
-5. Le statut **KYC = PENDING** est initialisé
-6. Le client est persisté dans **PostgreSQL**
-7. La réponse HTTP retourne l’identifiant et le statut
+- journalisation des requêtes et des erreurs
+- gestion transactionnelle pour garantir la cohérence des données
+- rollback automatique en cas d’échec d’une opération critique (ex : virement)
 
 ---
 
-## 6.2 Scénario — Approbation KYC
+### Organisation et déploiement
 
-1. L’administrateur / conformité envoie  
-   `PATCH /customers/{id}/kyc/approve`
-2. Le système vérifie que le client existe
-3. Le système vérifie que le statut actuel est **PENDING**
-4. Le statut passe à **APPROVED**
-5. Une entrée **KYC_APPROVED** est ajoutée dans `audit_log`
-6. La réponse retourne le nouveau statut
+Le système est déployé dans un environnement conteneurisé grâce à **Docker et docker-compose**.
 
----
+L’environnement comprend :
 
-## 6.3 Scénario — Ouverture d’un compte
+- un conteneur pour l’application **BrokerX Banking API**
+- un conteneur pour la base de données **PostgreSQL**
 
-1. Le client envoie  
-   `POST /customers/{customerId}/accounts`
-2. Le système valide l’authentification
-3. Le système vérifie que le client est **KYC APPROVED**
-4. Le système valide le type de compte et la devise
-5. Le système crée un compte **ACTIVE** avec `balance = 0`
-6. Une entrée **ACCOUNT_OPENED** est ajoutée dans `audit_log`
-7. Les informations du compte sont retournées
+Un pipeline **CI/CD** est également utilisé afin d’automatiser :
+
+- la compilation du projet
+- l’exécution des tests
+- la validation du build
+
+Cela permet de garantir la reproductibilité du système et de faciliter son déploiement.
 
 ---
 
-## 6.4 Scénario — Consultation du solde ou du ledger
-
-1. Le client envoie  
-   `GET /accounts/{accountId}/balance`  
-   ou  
-   `GET /accounts/{accountId}/ledger`
-2. Le système lit **X-Customer-Id**
-3. Le système vérifie que le compte existe
-4. Le système vérifie que le compte appartient au client
-5. Le système lit les données demandées
-6. La réponse HTTP retourne le solde ou l’historique paginé
-
----
-
-## 6.5 Scénario — Virement entre comptes idempotent
-
-1. Le client envoie `POST /transfers`
-2. Le système valide l’authentification et **X-Customer-Id**
-3. Le système valide la présence de **Idempotency-Key**
-4. Le système vérifie si cette clé a déjà été utilisée  
-5. Si oui, il retourne le transfert existant
-
-Sinon, le système valide :
-
-- les comptes **source et destination**
-- le **montant**
-- l’appartenance du **compte source au client**
-- le **solde disponible**
-
-Puis :
-
-1. Une **transaction DB** est ouverte
-2. Le transfert est créé avec statut **COMPLETED**
-3. Les soldes des comptes sont mis à jour
-4. Deux écritures `ledger_entries` sont créées :
-   - **DEBIT**
-   - **CREDIT**
-5. Une entrée **TRANSFER_CREATED** est ajoutée dans `audit_log`
-6. La transaction est validée
-7. La réponse HTTP retourne la confirmation du virement
-
----
-
-## 6.6 Scénario — Lecture avec cache Redis
-
-1. Le client appelle l’endpoint de consultation du solde
-2. Le service applicatif vérifie le **cache Redis**
-3. Si la valeur est en cache, la réponse est retournée immédiatement
-4. Sinon, la valeur est lue depuis **PostgreSQL**
-5. La valeur est mise en cache
-6. La réponse est retournée
-
----
-
-# 7. Vue de déploiement
-
-## 7.1 Déploiement local minimal
-
-Le déploiement local minimal comprend :
-
-- application **Spring Boot**
-- **PostgreSQL**
-- **Prometheus**
-- **Grafana**
-
-```
-[Client]
-   |
-   v
-[BrokerX Spring Boot :8081]
-   |
-   +--> [PostgreSQL]
-   +--> [/actuator/prometheus]
-             |
-             v
-        [Prometheus]
-             |
-             v
-          [Grafana]
-```
+## Justification
 
----
+L’architecture choisie permet de répondre efficacement aux contraintes du projet.
 
-## 7.2 Déploiement avec load balancer
+Le choix de **Spring Boot** et **PostgreSQL** fournit une base robuste et largement utilisée dans l’industrie.
 
-Pour les tests de **load balancing**, l’architecture suivante est utilisée :
+La conteneurisation avec **Docker** permet de simplifier le déploiement et d’assurer la reproductibilité de l’environnement.
 
-```
-Client
-  |
-  v
-NGINX :8082
-  |
-  +--> brokerx_app1
-  |
-  +--> brokerx_app2
-  |
-  v
-PostgreSQL
-```
-
-Cette configuration permet :
+Enfin, la séparation claire des couches applicatives facilite la maintenance du système et prépare une possible évolution vers une architecture distribuée.
 
-- de distribuer les requêtes sur plusieurs instances  
-- d’augmenter la disponibilité  
-- de préparer l’évolutivité horizontale  
+# ADR-001 — Choix du style architectural
 
----
+**Statut :** Accepté  
+**Date :** 2026-03-08  
+**Auteur :** Ashley Guevarra
 
-## 7.3 Déploiement avec API Gateway
+## Contexte
 
-Dans une architecture plus avancée, **KrakenD** peut être placé devant les services :
+Le projet BrokerX doit implémenter plusieurs cas d’utilisation bancaires via une API REST :
 
-```
-Client
-  |
-  v
-KrakenD API Gateway
-  |
-  v
-BrokerX services / instances
-  |
-  v
-PostgreSQL
-```
+- enregistrement d’un client
+- validation KYC
+- ouverture d’un compte
+- consultation du solde
+- virement entre comptes
 
----
+Il est nécessaire de choisir une structure logicielle qui facilite la séparation des responsabilités et la maintenabilité du code.
 
-## 7.4 Déploiement avec cache
+## Décision
 
-Lorsque **Redis** est activé :
+Une architecture **en couches inspirée de l’architecture hexagonale** est adoptée.
 
-```
-Client
-  |
-  v
-BrokerX API
-  |
-  +--> Redis
-  |
-  +--> PostgreSQL
-```
+Le projet est structuré en plusieurs couches :
 
----
+- **API** : contrôleurs REST
+- **Application** : orchestration des cas d’utilisation
+- **Domain** : logique métier
+- **Infrastructure** : persistance et accès aux ressources techniques
 
-## 7.5 Nœuds et responsabilités
+Cette structure permet une séparation claire entre logique métier et aspects techniques.
 
-- **BrokerX App** : logique métier, API REST, sécurité, validation  
-- **PostgreSQL** : persistance durable  
-- **Redis** : cache mémoire distribué  
-- **NGINX** : reverse proxy et load balancing  
-- **KrakenD** : API Gateway  
-- **Prometheus** : collecte des métriques  
-- **Grafana** : visualisation et dashboards  
+## Conséquences
 
-# 8. Concepts transversaux
+✅ code plus modulaire  
+✅ logique métier isolée  
+✅ tests plus faciles  
+✅ préparation à une évolution vers microservices  
 
-## 8.1 Sécurité
+❌ structure initiale légèrement plus complexe
 
-La phase 1 utilise une sécurité simple basée sur :
+# ADR-002 — Idempotence et transactions pour les virements
 
-- **Basic Auth** pour protéger les endpoints
-- **X-Customer-Id** pour simuler l’identité du client sur certains endpoints
+**Statut :** Accepté  
+**Date :** 2026-03-08  
+**Auteur :** Ashley Guevarra
 
-Cette approche est temporaire et sera remplacée plus tard par un mécanisme plus robuste, par exemple **JWT**.
+## Contexte
 
----
+Les virements bancaires doivent être fiables et ne doivent jamais être exécutés plusieurs fois.
 
-## 8.2 Validation
+Dans une API REST, une requête peut être répétée à cause d’un timeout réseau ou d’un retry automatique.
 
-Les entrées sont validées au niveau REST avec les mécanismes de validation **Spring**.
+## Décision
 
-Exemples :
+Un mécanisme **Idempotency-Key** est utilisé pour les opérations de virement.
 
-- nom complet obligatoire
-- email valide
-- montant strictement positif
-- devise supportée
-- type de compte supporté
+Chaque requête de transfert doit inclure :
 
----
+Idempotency-Key: <clé unique>
 
-## 8.3 Gestion des erreurs
+Le système vérifie si cette clé existe déjà :
 
-Les erreurs sont retournées dans un format JSON cohérent :
+- si oui → le transfert existant est retourné
+- sinon → un nouveau transfert est créé
 
-```json
-{
-  "timestamp": "2026-03-08T18:28:42.854893Z",
-  "message": "Invalid request",
-  "error": "VALIDATION_ERROR",
-  "details": [
-    {
-      "field": "amountCents",
-      "message": "must be greater than or equal to 1"
-    }
-  ]
-}
-```
+Les opérations de transfert sont exécutées dans une **transaction de base de données** afin de garantir la cohérence.
 
-Exemples de codes d’erreur :
+## Conséquences
 
-- `VALIDATION_ERROR`
-- `CUSTOMER_NOT_FOUND`
-- `ACCOUNT_NOT_FOUND`
-- `CUSTOMER_ALREADY_EXISTS`
-- `INVALID_KYC_STATE`
-- `INSUFFICIENT_FUNDS`
-- `UNAUTHORIZED`
-- `FORBIDDEN_RESOURCE`
-- `IDEMPOTENCY_KEY_REQUIRED`
+✅ évite les doubles virements  
+✅ améliore la fiabilité de l’API  
+✅ garantit la cohérence des données  
 
----
+❌ nécessite la gestion d’une clé d’idempotence
 
-## 8.4 Persistance et intégrité
+# ADR-003 — Observabilité (logs, métriques et monitoring)
 
-La persistance est assurée par **Spring Data JPA** et **PostgreSQL**.
+**Statut :** Accepté  
+**Date :** 2026-03-08  
+**Auteur :** Ashley Guevarra
 
-Le modèle principal comprend :
+## Contexte
 
-- `customers`
-- `accounts`
-- `transfers`
-- `ledger_entries`
-- `audit_log`
+Il est nécessaire de pouvoir observer le comportement du système afin de détecter les erreurs et mesurer les performances.
 
-Les contraintes importantes incluent :
-
-- unicité de l’email client
-- unicité de l’`idempotency_key`
-- intégrité référentielle entre comptes, transferts et écritures comptables
-
----
-
-## 8.5 Transactions
-
-Les opérations critiques, notamment **UC-05**, sont exécutées dans une transaction SQL afin de garantir :
-
-- **atomicité**
-- **cohérence**
-- absence d’état intermédiaire invalide
-
----
-
-## 8.6 Idempotence
-
-Le système utilise une **Idempotency-Key** pour les virements.
-
-Cela permet :
-
-- d’éviter le double débit
-- de rendre l’opération rejouable sans effet secondaire supplémentaire
-- d’assurer un comportement plus sûr face aux **retries réseau**
-
----
-
-## 8.7 Audit et traçabilité
-
-Les actions critiques produisent des entrées dans `audit_log`.
-
-Exemples :
-
-- `KYC_APPROVED`
-- `ACCOUNT_OPENED`
-- `TRANSFER_CREATED`
-
-Le journal d’audit est de type **append-only**.
-
----
-
-## 8.8 Ledger
-
-Chaque transfert génère deux écritures :
-
-- une écriture **DEBIT** sur le compte source
-- une écriture **CREDIT** sur le compte destination
-
-Cela permet de conserver un **historique comptable explicite et consultable**.
-
----
-
-## 8.9 Observabilité
-
-L’application expose des métriques via :
-
-```
-/actuator/prometheus
-```
-
-Les **4 Golden Signals** observés sont :
+Le projet BrokerX doit permettre d’analyser les **4 Golden Signals** :
 
 - latence
 - trafic
 - erreurs
 - saturation
 
-Les métriques sont collectées par **Prometheus** et visualisées dans **Grafana**.
+## Décision
+
+Une stratégie d’observabilité est mise en place :
+
+- logs applicatifs structurés
+- métriques exposées via **Spring Boot Actuator**
+- collecte avec **Prometheus**
+- visualisation via **Grafana**
+
+Les métriques sont exposées via :
+
+`/actuator/prometheus`
+
+## Conséquences
+
+✅ meilleure visibilité sur le système  
+✅ détection rapide des erreurs  
+✅ analyse des performances lors des tests de charge  
+
+❌ nécessite des composants supplémentaires
+
+# 5. Vue des blocs de construction
+
+## Contenu
+
+La vue des blocs de construction décrit la décomposition statique du système **BrokerX Banking API** en différents blocs logiciels.
+
+Elle présente les principaux modules du système ainsi que leurs relations et dépendances.
+
+Cette vue permet de comprendre l’organisation du code source et la séparation des responsabilités entre les différentes couches du système.
 
 ---
 
-## 8.10 Performance et mise à l’échelle
+## Motivation
 
-La stratégie de performance comprend :
+Cette vue permet de :
 
-- mise en cache **Redis** pour certaines lectures fréquentes
-- possibilité de déployer plusieurs instances **Spring Boot**
-- usage de **NGINX** pour répartir la charge
-- usage d’une **API Gateway** pour centraliser les accès
+- comprendre la structure globale du système
+- expliquer l’organisation du code source
+- faciliter la communication entre les développeurs et les parties prenantes
+- illustrer les décisions architecturales décrites dans les ADR
+
+La vue est organisée en plusieurs niveaux afin de présenter progressivement les détails de l’architecture.
 
 ---
 
-## 8.11 Évolutivité
+# Niveau 1 — Système global BrokerX
 
-L’architecture actuelle prépare les évolutions suivantes :
+Le système **BrokerX Banking API** est structuré selon une architecture en couches inspirée de l’architecture hexagonale.
 
-- passage progressif à une **architecture microservices**
-- ajout d’une **API Gateway**
-- remplacement de **Basic Auth par JWT**
-- montée en charge **horizontale**
-- optimisation des endpoints fortement sollicités
+Les principaux blocs sont :
+
+- **API** : expose les endpoints REST et gère les requêtes HTTP
+- **Application** : contient les services applicatifs qui orchestrent les cas d’utilisation
+- **Domain** : contient la logique métier et les entités principales
+- **Infrastructure** : gère les aspects techniques comme la persistance et l’accès à la base de données
+
+Ces couches permettent de séparer clairement la logique métier des détails techniques.
+
+Le système est également organisé autour de plusieurs modules métier principaux :
+
+- **customer** : enregistrement des clients et gestion du statut KYC
+- **account** : ouverture de comptes, consultation du solde et du ledger
+- **transfer** : exécution des virements avec idempotence
+- **ledger** : historisation comptable des mouvements
+- **audit** : journalisation des opérations critiques
+
+Diagramme de niveau 1 :
+
+<p style="text-align: center;">
+  <img src="./Images/5_Niveau1.png" alt="Figure 2" width="600">
+  <br>
+  <em>Figure 2. Diagramme Niveau 1</em>
+</p>
+
+## Niveau 2 — Couche Domaine
+
+La couche **Domain** contient les concepts métier du système bancaire.
+
+Les principales entités sont :
+
+- **Customer** : représente un client de la banque et son statut KYC
+- **Account** : représente un compte bancaire appartenant à un client
+- **Transfer** : représente une opération de virement entre deux comptes
+- **LedgerEntry** : représente une écriture comptable de débit ou de crédit
+- **AuditLog** : représente une trace des opérations critiques du système
+
+Cette couche contient les règles métier principales du système et ne dépend pas des couches techniques.
+
+<p style="text-align: center;">
+  <img src="./Images/5_Niveau2.1.png" alt="Figure 3" width="600">
+  <br>
+  <em>Figure 3. Diagramme Niveau 2 Couche Domaine</em>
+</p>
+
+---
+
+## Niveau 2 — Couche Application
+
+La couche **Application** contient les services applicatifs qui orchestrent les cas d’utilisation.
+
+Les principaux services identifiés dans le projet sont :
+
+- **RegisterCustomerService** : création d’un nouveau client avec statut KYC initial `PENDING`
+- **ApproveKycService** : validation KYC d’un client existant
+- **OpenAccountService** : ouverture d’un compte bancaire pour un client approuvé
+- **ConsultAccountService** : consultation du solde et de l’historique (ledger)
+- **TransferService** : exécution des virements entre comptes avec gestion de l’idempotence
+
+Ces services implémentent les règles métier du système et coordonnent les interactions entre les entités du domaine, les repositories et les mécanismes transverses comme l’audit.
+
+<p style="text-align: center;">
+  <img src="./Images/5_Niveau2.2.png" alt="Figure 4" width="600">
+  <br>
+  <em>Figure 4. Diagramme Niveau 2 Couche Application</em>
+</p>
+
+---
+
+## Niveau 2 — Couche Infrastructure
+
+La couche **Infrastructure** contient les implémentations techniques nécessaires au fonctionnement du système.
+
+Elle inclut notamment :
+
+- les contrôleurs REST exposant les endpoints HTTP :
+  - **KycController**
+  - **AccountController**
+  - **AccountConsultController**
+  - **TransferController**
+- les repositories JPA :
+  - **CustomerRepository**
+  - **AccountRepository**
+  - **TransferRepository**
+  - **LedgerEntryRepository**
+  - **AuditLogRepository**
+- la configuration technique, notamment **SecurityConfig**
+- la gestion centralisée des erreurs via **ApiExceptionHandler**
+- l’accès à la base de données **PostgreSQL**
+
+Cette couche dépend des autres couches mais celles-ci ne dépendent pas directement des détails techniques qu’elle implémente.
+
+<p style="text-align: center;">
+  <img src="./Images/5_Niveau2.3.png" alt="Figure 5" width="600">
+  <br>
+  <em>Figure 5. Diagramme Niveau 2 Couche Infrastructure</em>
+</p>
+
+# 6. Vue dynamique (Runtime View)
+
+## Contenu
+
+La vue dynamique décrit le comportement concret du système **BrokerX Banking API** à l’exécution, sous forme de scénarios.
+
+Ces scénarios illustrent :
+
+- la réalisation des principaux cas d’utilisation
+- les interactions entre les couches `api`, `application`, `domain` et `infrastructure`
+- les échanges avec la base de données
+- la gestion des erreurs et des validations métier
+
+## Motivation
+
+Cette vue permet de comprendre comment les différents composants du système collaborent à l’exécution des opérations bancaires.
+
+Elle complète la vue statique des blocs de construction en montrant le déroulement réel des principaux cas d’utilisation.
+
+## Forme
+
+Les scénarios sont décrits à l’aide :
+
+- de listes numérotées
+- de diagrammes de séquence UML
+
+Les cinq cas d’utilisation principaux du système sont présentés ci-dessous.
+
+---
+
+## Scénario 1 — UC-01 : Enregistrement d’un client
+
+1. Le client envoie une requête HTTP `POST /customers`.
+2. `CustomerController` reçoit la requête et la transmet à `CustomerService`.
+3. `CustomerService` valide les données reçues.
+4. `CustomerService` crée un nouvel objet `Customer`.
+5. `CustomerService` demande à `CustomerRepository` de sauvegarder le client.
+6. Le repository persiste les données dans PostgreSQL.
+7. La confirmation de création est retournée au contrôleur.
+8. `CustomerController` retourne la réponse HTTP au client.
+
+### Diagramme de séquence — UC-01
+
+<p style="text-align: center;">
+  <img src="./Images/6_UC01.png" alt="Figure 6" width="600">
+  <br>
+  <em>Figure 6. Diagramme UC01</em>
+</p>
+
+## Scénario 2 — UC-02 : Vérification KYC
+
+1. Le client ou l’administrateur envoie une requête HTTP `PATCH /customers/{id}/kyc/approve`.
+2. `CustomerController` reçoit la requête et la transmet à `CustomerService`.
+3. `CustomerService` récupère le client via `CustomerRepository`.
+4. Le service vérifie que le client existe.
+5. Le statut KYC du client est mis à jour.
+6. `CustomerRepository` persiste la modification dans la base de données.
+7. `CustomerController` retourne la confirmation de la vérification KYC.
+
+### Diagramme de séquence — UC-02
+
+<p style="text-align: center;">
+  <img src="./Images/6_UC02.png" alt="Figure 7" width="600">
+  <br>
+  <em>Figure 7. Diagramme UC02</em>
+</p>
+
+---
+
+# UC-03
+
+## Scénario 3 — UC-03 : Ouverture d’un compte bancaire
+
+1. Le client envoie une requête HTTP `POST /accounts`.
+2. `AccountController` reçoit la requête et la transmet à `AccountService`.
+3. `AccountService` vérifie que le client existe via `CustomerRepository`.
+4. Le service vérifie que le statut KYC du client est approuvé.
+5. Si le KYC n’est pas validé, une erreur est retournée.
+6. Si le KYC est validé, un nouvel objet `Account` est créé.
+7. `AccountRepository` persiste le compte dans PostgreSQL.
+8. `AccountController` retourne la confirmation d’ouverture du compte.
+
+### Diagramme de séquence — UC-03
+
+<p style="text-align: center;">
+  <img src="./Images/6_UC03.png" alt="Figure 8" width="600">
+  <br>
+  <em>Figure 8. Diagramme UC03</em>
+</p>
+
+---
+
+# UC-04
+
+## Scénario 4 — UC-04 : Consultation du solde et de l’historique
+
+1. Le client envoie une requête HTTP `GET /accounts/{id}/balance`.
+2. `AccountController` reçoit la requête et la transmet à `AccountService`.
+3. `AccountService` récupère le compte via `AccountRepository`.
+4. Le service extrait le solde du compte.
+5. Le solde est retourné au contrôleur.
+6. `AccountController` retourne la réponse au client.
+
+### Diagramme de séquence — UC-04
+
+<p style="text-align: center;">
+  <img src="./Images/6_UC04.png" alt="Figure 9" width="600">
+  <br>
+  <em>Figure 9. Diagramme UC04</em>
+</p>
+
+---
+
+# UC-05
+
+## Scénario 5 — UC-05 : Virement entre comptes
+
+1. Le client envoie une requête HTTP `POST /transfers` avec une `Idempotency-Key`.
+2. `TransferController` reçoit la requête et la transmet à `TransferService`.
+3. `TransferService` vérifie si un transfert avec la même clé existe déjà.
+4. Si oui, le transfert existant est retourné.
+5. Sinon, le service charge les comptes source et destination via `AccountRepository`.
+6. Le service vérifie que le compte source possède un solde suffisant.
+7. Si le solde est insuffisant, une erreur est retournée.
+8. Si le solde est suffisant, un objet `Transfer` est créé.
+9. `TransferRepository` persiste le transfert.
+10. Les soldes des comptes sont mis à jour.
+11. Une entrée est enregistrée dans `audit_log`.
+12. `TransferController` retourne la confirmation du virement.
+
+### Diagramme de séquence — UC-05
+
+<p style="text-align: center;">
+  <img src="./Images/6_UC05.png" alt="Figure 10" width="600">
+  <br>
+  <em>Figure 10. Diagramme UC05</em>
+</p>
+
+### Observabilité et métriques d’exécution
+
+Afin de mesurer le comportement du système sous charge, une infrastructure d’observabilité a été mise en place.
+
+Les métriques applicatives sont collectées par **Prometheus** et visualisées via **Grafana**.
+
+Le tableau de bord Grafana permet de suivre les **4 Golden Signals** :
+
+- **Traffic** : nombre de requêtes par seconde (RPS)
+- **Latency** : temps de réponse moyen des requêtes
+- **Errors** : taux d’erreurs HTTP (4xx / 5xx)
+- **Saturation** : utilisation des ressources (JVM heap memory)
+
+Ces métriques ont été observées pendant les campagnes de tests de charge réalisées avec **k6**.
+
+<p style="text-align: center;">
+  <img src="./Images/Grafana.png" alt="Grafana Dashboard" width="800">
+  <br>
+  <em>Figure 11. Dashboard Grafana montrant les métriques d'observabilité du système</em>
+</p>
+
+Les résultats permettent de visualiser le comportement du système lorsque plusieurs instances applicatives sont déployées derrière le load balancer NGINX.
+
+# 7. Vue de déploiement (Deployment View)
+
+## Contenu
+
+La vue de déploiement décrit l’infrastructure technique utilisée pour exécuter le système **BrokerX Banking API**, ainsi que la manière dont les composants logiciels sont déployés sur cette infrastructure.
+
+Dans la Phase 1, le système est déployé sous forme d’une application **monolithique conteneurisée avec Docker**.
+
+Cette vue inclut :
+
+1. Les environnements d’exécution
+2. Les composants d’infrastructure
+3. L’affectation des composants logiciels aux conteneurs
+4. Le diagramme de déploiement
+
+---
+
+## Motivation
+
+Le logiciel ne peut fonctionner sans une infrastructure sous-jacente. Cette infrastructure influence directement :
+
+- la performance
+- la sécurité
+- la disponibilité
+- la reproductibilité du système
+
+Documenter cette vue permet de :
+
+- montrer comment l’application est exécutée
+- expliquer la communication entre les composants
+- garantir la reproductibilité du déploiement via Docker
+- préparer une future évolution vers une architecture distribuée
+
+---
+
+## 7.1 Environnements
+
+### Développement local
+
+Le système peut être exécuté localement par les développeurs via la commande :
+
+docker-compose up
+
+Cette configuration démarre automatiquement :
+
+- le conteneur de l’application
+- le conteneur de base de données
+
+Cela permet de reproduire facilement l’environnement d’exécution.
+
+### Environnement de démonstration (VM)
+
+Le système est également déployé sur une **machine virtuelle de démonstration** fournie dans le cadre du projet.
+
+Le déploiement se fait via Docker et peut être reproduit en quelques minutes.
+
+### Production (phase future)
+
+Un environnement de production n’est pas couvert dans la Phase 1.
+
+Cependant, l’architecture conteneurisée permettrait facilement une évolution vers :
+
+- orchestration Kubernetes
+- load balancing
+- architecture microservices
+
+## 7.2 Déploiement physique
+
+L’infrastructure du système repose sur deux conteneurs Docker principaux.
+
+### Conteneur brokerx_app
+
+Ce conteneur contient l’application **BrokerX Banking API** développée en Java avec Spring Boot.
+
+Responsabilités :
+
+- exposition de l’API REST
+- gestion des cas d’utilisation
+- implémentation de la logique métier
+- gestion des transactions
+- journalisation des actions
+
+### Conteneur brokerx_db
+
+Ce conteneur contient la base de données **PostgreSQL**.
+
+Responsabilités :
+
+- stockage des données du système
+- gestion des clients
+- gestion des comptes
+- stockage des transactions
+- stockage des écritures comptables et des logs d’audit
+
+Les deux conteneurs communiquent via un **réseau Docker interne**.
+
+---
+
+## 7.3 Déploiement logique
+
+Le déploiement logique décrit comment les composants logiciels du système BrokerX sont répartis sur l’infrastructure technique.
+
+Le système repose sur une application monolithique exécutée dans un conteneur Docker et connectée à une base de données PostgreSQL dans un conteneur séparé.
+
+| Composant logiciel | Infrastructure cible | Détails |
+|--------------------|---------------------|--------|
+| Application monolithique | Conteneur `brokerx_app` | Application Java 17 / Spring Boot exposant l’API REST |
+| Couche API | `brokerx_app` | Controllers REST gérant les requêtes HTTP |
+| Couche application | `brokerx_app` | Services orchestrant les cas d’utilisation (CustomerService, AccountService, TransferService) |
+| Couche domaine | `brokerx_app` | Entités métier (Customer, Account, Transfer, LedgerEntry) |
+| Couche infrastructure | `brokerx_app` | Repositories JPA et accès aux ressources techniques |
+| Base de données | Conteneur `brokerx_db` | PostgreSQL utilisé pour la persistance des données |
+| Réseau applicatif | `brokerx-net` | Réseau Docker interne permettant la communication entre l’application et la base de données |
+
+## 7.4 Diagramme de déploiement
+
+<p style="text-align: center;">
+  <img src="./Images/7_DiagrammeDeploiement.png" alt="Figure 12" width="600">
+  <br>
+  <em>Figure 12. Diagramme Deploiement</em>
+</p>
+
+# 8. Concepts transverses (Cross-cutting Concepts)
+
+## Contenu
+
+Cette section décrit les règles globales et les solutions transverses utilisées dans l’architecture du système **BrokerX Banking API**.
+
+Ces concepts s’appliquent à plusieurs parties du système et permettent d’assurer la cohérence globale de l’architecture.
+
+Ils couvrent notamment :
+
+- le modèle de domaine
+- les aspects de sécurité
+- les règles d’architecture
+- les principes de développement
+- les aspects opérationnels
+
+## Motivation
+
+Les concepts transverses garantissent l’intégrité de l’architecture.
+
+Ils permettent :
+
+- d’éviter la duplication de décisions architecturales
+- de maintenir une cohérence dans l’ensemble du système
+- de faciliter la maintenance et l’évolution future du système
+
+Ces principes sont particulièrement importants dans un système bancaire où la fiabilité et la sécurité sont critiques.
+
+---
+
+# 8.1 Concepts de domaine
+
+Le modèle de domaine du système BrokerX suit les principes du **Domain-Driven Design (DDD)**.
+
+Les principales entités métier sont :
+
+- **Customer** : représente un client enregistré dans le système.
+- **Account** : représente un compte bancaire appartenant à un client.
+- **Transfer** : représente un virement entre deux comptes.
+- **LedgerEntry** : représente les écritures comptables associées à un transfert.
+- **AuditLog** : enregistre les opérations critiques pour assurer la traçabilité du système.
+
+Chaque entité encapsule une partie de la logique métier et définit les règles du domaine bancaire.
+
+Le vocabulaire utilisé dans le code correspond au **langage métier** du système afin de maintenir une cohérence entre le modèle fonctionnel et l’implémentation logicielle.
+
+---
+
+# 8.2 Concepts UX
+
+Le système BrokerX est principalement exposé via une **API REST**.
+
+Les interactions avec le système sont réalisées par des clients HTTP tels que :
+
+- Postman
+- scripts automatisés
+- applications clientes externes
+
+Les principes UX appliqués incluent :
+
+- utilisation de **codes HTTP standardisés**
+- messages d’erreur explicites
+- validation des entrées côté API
+- retour immédiat du résultat des opérations
+
+Les endpoints principaux couvrent les cas d’utilisation suivants :
+
+- création de clients
+- validation KYC
+- ouverture de comptes
+- consultation du solde et de l’historique
+- virements entre comptes
+
+---
+
+# 8.3 Concepts de sécurité
+
+La sécurité constitue un élément central de l’architecture du système BrokerX.
+
+Les mécanismes suivants sont utilisés :
+
+### Authentification
+
+L’accès à l’API est protégé par un mécanisme d’authentification basé sur :
+
+- identifiant utilisateur
+- mot de passe sécurisé
+
+### Protection des données
+
+Les données sensibles sont protégées par plusieurs mécanismes :
+
+- hachage des mots de passe avec **BCrypt**
+- validation des entrées côté API
+- gestion sécurisée des erreurs
+
+### Traçabilité
+
+Les opérations critiques sont enregistrées dans une table **AuditLog** afin de garantir la traçabilité des actions du système.
+
+Cela permet notamment de tracer :
+
+- création de comptes
+- validation KYC
+- virements entre comptes
+
+---
+
+# 8.4 Concepts d’architecture et de design
+
+L’architecture du système est inspirée de l’**architecture hexagonale (Ports & Adapters)**.
+
+L’application est organisée en plusieurs couches :
+
+### API Layer
+
+Contient les contrôleurs REST exposant les endpoints HTTP.
+
+### Application Layer
+
+Contient les services applicatifs qui orchestrent les cas d’utilisation.
+
+### Domain Layer
+
+Contient les entités métier et la logique métier principale.
+
+### Infrastructure Layer
+
+Contient les composants techniques tels que :
+
+- les repositories JPA
+- la configuration de persistance
+- l’accès à la base de données
+
+La persistance est gérée via **Hibernate/JPA** avec une base de données **PostgreSQL**.
+
+Cette séparation permet de réduire le couplage entre la logique métier et les aspects techniques.
+
+---
+
+# 8.5 Concepts techniques et de développement
+
+Le système est développé avec les technologies suivantes :
+
+- **Java 17**
+- **Spring Boot**
+- **PostgreSQL**
+- **Docker**
+
+Les principes suivants sont appliqués :
+
+### Tests
+
+Les tests suivent une **pyramide de tests** :
+
+- tests unitaires pour la logique métier
+- tests d’intégration pour la base de données
+- tests API pour les endpoints REST
+
+### CI/CD
+
+Un pipeline CI/CD permet d’automatiser :
+
+- la compilation du projet
+- l’exécution des tests
+- la génération de l’image Docker
+
+### Journalisation
+
+Les logs applicatifs incluent :
+
+- timestamp
+- niveau de log
+- messages d’erreur éventuels
+
+Ces logs facilitent le diagnostic et l’analyse des incidents.
+
+---
+
+# 8.6 Concepts opérationnels
+
+Le système est conteneurisé avec **Docker**.
+
+L’architecture d’exécution comprend :
+
+- un conteneur **brokerx_app** contenant l’application Spring Boot
+- un conteneur **brokerx_db** contenant la base de données **PostgreSQL**
+
+Les conteneurs communiquent via un réseau Docker interne nommé :
+
+**brokerx-net**
+
+Le système peut être déployé via la commande suivante :
+
+docker-compose up
+
+
+Cela garantit :
+
+- une installation reproductible
+- un déploiement rapide sur la VM de démonstration
+- une configuration cohérente entre les environnements.
+
+# 9. Limites actuelles et évolutions prévues
+
+La phase 1 du projet BrokerX met en place une architecture complète permettant d’implémenter les principaux cas d’utilisation du système bancaire tout en intégrant plusieurs mécanismes d’optimisation et d’observabilité.
+
+L’architecture actuelle inclut notamment :
+
+- une **API REST sécurisée**
+- une **base de données PostgreSQL**
+- une **observabilité avec Prometheus et Grafana**
+- des **tests de charge avec k6**
+- un **load balancing via NGINX**
+- un **mécanisme de cache avec Redis**
+- une **API Gateway avec KrakenD**
+
+Ces éléments permettent déjà de mesurer et d’observer le comportement du système sous différentes conditions de charge.
+
+Certaines améliorations architecturales pourraient néanmoins être explorées dans les phases ultérieures.
+
+---
+
+## 9.1 Découpage complet en microservices
+
+L’architecture actuelle repose sur une **application monolithique modulaire** déployée sur plusieurs instances applicatives derrière un load balancer.
+
+Cette approche permet de démontrer :
+
+- la scalabilité horizontale
+- la distribution de charge
+- l’observabilité sous charge
+
+Une évolution prévue pour la **phase 2 du projet** consistera à séparer les domaines métier en microservices indépendants.
+
+L’architecture actuelle repose sur une application monolithique modulaire répliquée sur plusieurs instances derrière un load balancer, ce qui permet déjà de démontrer la scalabilité horizontale et la répartition de charge.
+
+Dans la phase 2, les principaux domaines fonctionnels pourraient être séparés en services indépendants, par exemple :
+
+- **Customer / KYC Service**
+- **Account Service**
+- **Transfer Service**
+- **Audit / Ledger Service**
+
+L’API Gateway **KrakenD**, déjà intégrée dans l’architecture actuelle, permettra de router les requêtes vers ces services de manière transparente.
+
+---
+
+## 9.2 Analyses de performance plus approfondies
+
+Le projet inclut déjà des campagnes de tests de charge avec **k6**, ainsi que l’observation des métriques via **Prometheus** et **Grafana**.
+
+Dans les phases futures, ces analyses pourraient être enrichies avec :
+
+- des comparaisons systématiques entre **1, 2, 3 et 4 instances applicatives**
+- une analyse détaillée de l’impact du **load balancing**
+- des comparaisons entre **accès direct à l’API et accès via l’API Gateway**
+- la production de tableaux et graphiques comparatifs (latence P95/P99, RPS, taux d’erreurs, saturation).
+
+---
+
+## 9.3 Tolérance aux pannes
+
+L’architecture actuelle permet déjà la distribution des requêtes entre plusieurs instances applicatives grâce au **load balancer NGINX**.
+
+Une amélioration future consisterait à démontrer plus explicitement la **tolérance aux pannes**, par exemple :
+
+- arrêter une instance applicative pendant une campagne de tests de charge
+- vérifier que le load balancer continue de distribuer les requêtes vers les autres instances
+- observer l’impact sur les métriques collectées par Prometheus et visualisées dans Grafana.
+
+---
+
+## Conclusion
+
+L’architecture actuelle constitue une base solide pour l’évolution du système BrokerX.
+
+Les améliorations futures permettront de renforcer :
+
+- la modularité du système
+- la scalabilité
+- la tolérance aux pannes
+- l’analyse détaillée des performances.
