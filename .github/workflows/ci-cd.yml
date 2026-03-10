@@ -26,7 +26,14 @@ jobs:
           java-version: '17'
           cache: maven
 
+      - name: Show repo files
+        run: |
+          pwd
+          ls -la
+          find . -name "pom.xml"
+
       - name: Build and test with Maven
+        working-directory: ./ashleyguevarra_phase1_log430
         run: mvn -B clean verify
 
   cd:
@@ -59,7 +66,7 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
-          context: .
+          context: ./ashleyguevarra_phase1_log430
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
