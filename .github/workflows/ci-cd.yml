@@ -15,6 +15,21 @@ jobs:
     name: Build and Test
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: brokerx
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d brokerx"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -26,7 +41,18 @@ jobs:
           java-version: '17'
           cache: maven
 
+      - name: Show repo files
+        run: |
+          pwd
+          ls -la
+          find . -name "pom.xml"
+
       - name: Build and test with Maven
+        working-directory: ./ashleyguevarra_phase1_log430
+        env:
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/brokerx
+          SPRING_DATASOURCE_USERNAME: postgres
+          SPRING_DATASOURCE_PASSWORD: postgres
         run: mvn -B clean verify
 
   cd:
@@ -59,7 +85,7 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
-          context: .
+          context: ./ashleyguevarra_phase1_log430
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
