@@ -25,15 +25,19 @@ public class LedgerEntry {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
+    @Column(name = "transfer_id")
+    private UUID transferId;
+
     protected LedgerEntry() {}
 
-    public LedgerEntry(UUID accountId, String direction, long amountCents, String description) {
+    public LedgerEntry(UUID accountId, String direction, long amountCents, String description, UUID transferId) {
         this.id = UUID.randomUUID();
         this.accountId = accountId;
         this.direction = direction;
         this.amountCents = amountCents;
         this.description = description;
         this.createdAt = Instant.now();
+        this.transferId = transferId;
     }
 
     public UUID getId() { return id; }
@@ -42,4 +46,5 @@ public class LedgerEntry {
     public long getAmountCents() { return amountCents; }
     public String getDescription() { return description; }
     public Instant getCreatedAt() { return createdAt; }
+    public UUID getTransferId() { return transferId; }
 }

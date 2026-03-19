@@ -1,0 +1,17 @@
+sequenceDiagram
+    participant Client
+    participant KycController
+    participant ApproveKycService
+    participant CustomerRepository
+    participant DB as PostgreSQL
+
+    Client->>KycController: PATCH /api/v1/customers/{id}/kyc/approve
+    KycController->>ApproveKycService: approve(customerId)
+    ApproveKycService->>CustomerRepository: findById(customerId)
+    CustomerRepository->>DB: SELECT customer
+    CustomerRepository-->>ApproveKycService: Customer
+    ApproveKycService->>ApproveKycService: Mettre à jour kycStatus=APPROVED
+    ApproveKycService->>CustomerRepository: save(customer)
+    CustomerRepository->>DB: UPDATE customer
+    ApproveKycService-->>KycController: Customer
+    KycController-->>Client: 200 + RegisterCustomerResponse

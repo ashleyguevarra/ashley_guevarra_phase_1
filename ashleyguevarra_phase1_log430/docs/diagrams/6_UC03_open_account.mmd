@@ -1,0 +1,20 @@
+sequenceDiagram
+    participant Client
+    participant AccountController
+    participant OpenAccountService
+    participant CustomerRepository
+    participant AccountRepository
+    participant DB as PostgreSQL
+
+    Client->>AccountController: POST /api/v1/customers/{customerId}/accounts
+    AccountController->>OpenAccountService: open(customerId, type, currency)
+    OpenAccountService->>CustomerRepository: findById(customerId)
+    CustomerRepository->>DB: SELECT customer
+    CustomerRepository-->>OpenAccountService: Customer
+    OpenAccountService->>OpenAccountService: Vérifier kycStatus=APPROVED
+    OpenAccountService->>OpenAccountService: Créer Account
+    OpenAccountService->>AccountRepository: save(account)
+    AccountRepository->>DB: INSERT account
+    AccountRepository-->>OpenAccountService: Account
+    OpenAccountService-->>AccountController: Account
+    AccountController-->>Client: 201 + OpenAccountResponse

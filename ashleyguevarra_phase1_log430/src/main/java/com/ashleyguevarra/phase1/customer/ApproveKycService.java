@@ -2,12 +2,14 @@ package com.ashleyguevarra.phase1.customer;
 
 import com.ashleyguevarra.phase1.audit.AuditLog;
 import com.ashleyguevarra.phase1.audit.AuditLogRepository;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
 @Service
+@Profile("account")
 public class ApproveKycService {
 
     private final CustomerRepository customers;

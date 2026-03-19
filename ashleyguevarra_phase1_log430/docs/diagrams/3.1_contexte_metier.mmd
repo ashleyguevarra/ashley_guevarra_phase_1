@@ -1,0 +1,12 @@
+flowchart LR
+    Client([Client])
+    KYC([Service KYC simulé])
+    Ext([Système bancaire externe futur])
+    CanBankX[CanBankX Banking API]
+    
+    Client -->|Informations personnelles, demande compte, virement| CanBankX
+    CanBankX -->|Confirmation, infos compte, résultat virement| Client
+    KYC -->|Données personnelles| CanBankX
+    CanBankX -->|Résultat validation KYC| KYC
+    Ext -.->|Demande transaction futur| CanBankX
+    CanBankX -.->|Confirmation/rejet futur| Ext

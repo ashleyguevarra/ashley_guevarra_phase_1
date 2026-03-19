@@ -1,0 +1,37 @@
+flowchart TB
+    subgraph Monolith["Mode Monolith"]
+        subgraph ControllersM["Contrôleurs (1 processus)"]
+            KycM[KycController]
+            AccM[AccountController]
+            ConsultM[AccountConsultController]
+            TransM[TransferController]
+        end
+        subgraph ReposM["Repositories"]
+            CustM[CustomerRepository]
+            AccRepoM[AccountRepository]
+            TransRepoM[TransferRepository]
+            LedgerM[LedgerEntryRepository]
+            AuditM[AuditLogRepository]
+        end
+        DB_Mono[("PostgreSQL unique")]
+    end
+
+    subgraph Micro["Mode Microservices"]
+        subgraph AccInfra["account-service"]
+            Kyc[KycController]
+            Acc[AccountController]
+            Consult[AccountConsultController]
+            Saga[InternalAccountSagaController]
+            Cust[CustomerRepository]
+            AccRepo[AccountRepository]
+            Ledger[LedgerEntryRepository]
+            Audit[AuditLogRepository]
+            DB_Acc[("PostgreSQL account")]
+        end
+        subgraph TransInfra["transfer-service"]
+            Trans[TransferController]
+            TransRepo[TransferRepository]
+            Redis[Redis]
+            DB_Trans[("PostgreSQL transfer")]
+        end
+    end

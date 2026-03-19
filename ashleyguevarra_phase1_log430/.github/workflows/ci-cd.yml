@@ -1,4 +1,4 @@
-name: BrokerX CI/CD
+name: CanBankX CI/CD
 
 on:
   push:
@@ -19,13 +19,13 @@ jobs:
       postgres:
         image: postgres:16
         env:
-          POSTGRES_DB: brokerx
+          POSTGRES_DB: canbankx
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
         ports:
           - 5432:5432
         options: >-
-          --health-cmd="pg_isready -U postgres -d brokerx"
+          --health-cmd="pg_isready -U postgres -d canbankx"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
@@ -50,7 +50,7 @@ jobs:
       - name: Build and test with Maven
         working-directory: ./ashleyguevarra_phase1_log430
         env:
-          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/brokerx
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/canbankx
           SPRING_DATASOURCE_USERNAME: postgres
           SPRING_DATASOURCE_PASSWORD: postgres
         run: mvn -B clean verify

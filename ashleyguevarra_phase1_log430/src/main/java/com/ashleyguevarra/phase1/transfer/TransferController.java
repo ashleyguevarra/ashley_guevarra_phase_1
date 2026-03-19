@@ -3,12 +3,14 @@ package com.ashleyguevarra.phase1.transfer;
 import com.ashleyguevarra.phase1.transfer.dto.CreateTransferRequest;
 import com.ashleyguevarra.phase1.transfer.dto.TransferResponse;
 import jakarta.validation.Valid;
+import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/transfers")
+@Profile("transfer")
+@RequestMapping("/api/v1/transfers")
 public class TransferController {
 
     private final TransferService service;

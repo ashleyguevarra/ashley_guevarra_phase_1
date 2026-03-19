@@ -6,9 +6,9 @@ spring:
     name: ashley-phase1-log430
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/brokerx
-    username: brokerx
-    password: brokerx
+    url: jdbc:postgresql://localhost:5432/canbankx
+    username: canbankx
+    password: canbankx
     driver-class-name: org.postgresql.Driver
 
   jpa:

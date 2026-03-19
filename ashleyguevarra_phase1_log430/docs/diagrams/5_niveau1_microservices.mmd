@@ -1,0 +1,42 @@
+flowchart TB
+    subgraph CanBankX["CanBankX Banking API"]
+        subgraph AccountService["account-service"]
+            Kyc[KycController]
+            AccCtrl[AccountController]
+            Consult[AccountConsultController]
+            SagaInternal[InternalAccountSagaController]
+        end
+        subgraph TransferService["transfer-service"]
+            TransCtrl[TransferController]
+            TransSvc[TransferService]
+        end
+    end
+    
+    subgraph Domaine
+        Customer[Customer]
+        Account[Account]
+        Transfer[Transfer]
+        Ledger[LedgerEntry]
+        Audit[AuditLog]
+    end
+    
+    subgraph Infra
+        DB[(PostgreSQL)]
+    end
+    
+    Kyc --> Customer
+    AccCtrl --> Account
+    Consult --> Account
+    Consult --> Ledger
+    SagaInternal --> Account
+    TransCtrl --> TransSvc
+    TransSvc --> Transfer
+    TransSvc --> Ledger
+    TransSvc --> Audit
+    TransSvc --> SagaInternal
+    
+    Account --> DB
+    Customer --> DB
+    Transfer --> DB
+    Ledger --> DB
+    Audit --> DB

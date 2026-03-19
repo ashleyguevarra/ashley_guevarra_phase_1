@@ -6,13 +6,15 @@ import com.ashleyguevarra.phase1.ledger.dto.LedgerPageResponse;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
+import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/accounts")
+@Profile("account")
+@RequestMapping("/api/v1/accounts")
 public class AccountConsultController {
 
     private final ConsultAccountService service;

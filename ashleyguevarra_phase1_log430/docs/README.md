@@ -1,8 +1,8 @@
-# BrokerX Banking API — LOG430 Phase 1
+# CanBankX Banking API — LOG430 Phase 1
 
 ## Description
 
-Ce projet implémente une première version du système bancaire **BrokerX** sous forme d'une **API REST** développée avec **Java et Spring Boot**.
+Ce projet implémente une première version du système bancaire **CanBankX** sous forme d'une **API REST** développée avec **Java et Spring Boot**.
 
 L'objectif du projet est de concevoir une architecture logicielle capable de supporter les fonctionnalités bancaires de base tout en intégrant des mécanismes d'observabilité, de performance et de traçabilité.
 
@@ -234,7 +234,7 @@ Une architecture avec **NGINX** peut être utilisée pour distribuer les requêt
 Architecture :
 
 ```
-Client → NGINX → Instances BrokerX → PostgreSQL
+Client → NGINX → Instances CanBankX → PostgreSQL
 ```
 
 Cela permet :
@@ -291,7 +291,7 @@ Les documents d'architecture incluent :
 
 # Conclusion
 
-Cette première phase du projet BrokerX permet de démontrer :
+Cette première phase du projet CanBankX permet de démontrer :
 
 - une API REST fonctionnelle
 - une persistance fiable des données

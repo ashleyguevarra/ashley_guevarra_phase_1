@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CanBankX — Banking API</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0f0f12;
+      --surface: #1a1a1f;
+      --border: #2a2a32;
+      --accent: #00d4aa;
+      --accent-dim: #00a884;
+      --text: #e8e8ed;
+      --text-muted: #888;
+      --error: #ff6b6b;
+      --success: #00d4aa;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+    .container { max-width: 720px; margin: 0 auto; padding: 2rem; }
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      color: var(--accent);
+    }
+    .subtitle { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 2rem; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .card h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      color: var(--text);
+    }
+    label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem; }
+    input, select, button {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.9rem;
+      padding: 0.5rem 0.75rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      width: 100%;
+      margin-bottom: 0.75rem;
+    }
+    button {
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+      width: auto;
+      padding: 0.6rem 1.25rem;
+      margin-right: 0.5rem;
+      margin-bottom: 0;
+    }
+    button:hover { background: var(--accent-dim); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .row { display: flex; gap: 1rem; flex-wrap: wrap; }
+    .row > * { flex: 1; min-width: 140px; }
+    pre, .output {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1rem;
+      overflow-x: auto;
+      margin-top: 0.75rem;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .success { color: var(--success); }
+    .error { color: var(--error); }
+    .config { margin-bottom: 1.5rem; }
+    .config input { max-width: 320px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>CanBankX</h1>
+    <p class="subtitle">Banking API — Phase 1</p>
+
+    <div class="card config">
+      <h2>Configuration</h2>
+      <label>API Base URL</label>
+      <input type="text" id="apiUrl" value="http://localhost:8082" placeholder="http://localhost:8082">
+      <label>Auth (admin:admin)</label>
+      <input type="text" id="auth" value="admin:admin" placeholder="user:password">
+    </div>
+
+    <div class="card">
+      <h2>1. Create customer</h2>
+      <div class="row">
+        <div><label>Full name</label><input type="text" id="fullName" placeholder="Alice Smith"></div>
+        <div><label>Email</label><input type="email" id="email" placeholder="alice@example.com"></div>
+      </div>
+      <button onclick="createCustomer()">Create</button>
+      <div id="customerOut" class="output" style="display:none"></div>
+    </div>
+
+    <div class="card">
+      <h2>2. Approve KYC</h2>
+      <label>Customer ID</label>
+      <input type="text" id="customerId" placeholder="UUID from step 1">
+      <button onclick="approveKyc()">Approve KYC</button>
+      <div id="kycOut" class="output" style="display:none"></div>
+    </div>
+
+    <div class="card">
+      <h2>3. Open account</h2>
+      <label>Customer ID</label>
+      <input type="text" id="openAccountCid" placeholder="Customer UUID">
+      <div class="row">
+        <div><label>Type</label><select id="accountType"><option>CHECKING</option><option>SAVINGS</option></select></div>
+        <div><label>Currency</label><select id="currency"><option>CAD</option><option>USD</option></select></div>
+      </div>
+      <button onclick="openAccount()">Open account</button>
+      <div id="accountOut" class="output" style="display:none"></div>
+    </div>
+
+    <div class="card">
+      <h2>3b. Fund account <span style="color:var(--text-muted);font-weight:400">(test only)</span></h2>
+      <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.75rem;">Add balance to an account so you can make transfers. New accounts start at 0.</p>
+      <label>Account ID</label>
+      <input type="text" id="fundAccountId" placeholder="Account UUID">
+      <label>Amount (cents)</label>
+      <input type="number" id="fundAmount" value="10000" min="1" placeholder="10000 = 100 CAD">
+      <button onclick="fundAccount()">Fund account</button>
+      <div id="fundOut" class="output" style="display:none"></div>
+    </div>
+
+    <div class="card">
+      <h2>4. Balance & Ledger</h2>
+      <label>Customer ID</label>
+      <input type="text" id="balanceCid" placeholder="Customer UUID">
+      <label>Account ID</label>
+      <input type="text" id="accountId" placeholder="Account UUID">
+      <button onclick="getBalance()">Get balance</button>
+      <button onclick="getLedger()">Get ledger</button>
+      <div id="balanceOut" class="output" style="display:none"></div>
+    </div>
+
+    <div class="card">
+      <h2>5. Transfer</h2>
+      <label>Customer ID</label>
+      <input type="text" id="transferCid" placeholder="Customer UUID">
+      <div class="row">
+        <div><label>From account</label><input type="text" id="fromAccount" placeholder="Source UUID"></div>
+        <div><label>To account</label><input type="text" id="toAccount" placeholder="Dest UUID"></div>
+      </div>
+      <label>Amount (cents)</label>
+      <input type="number" id="amountCents" value="100" min="1">
+      <button onclick="transfer()">Transfer</button>
+      <div id="transferOut" class="output" style="display:none"></div>
+    </div>
+  </div>
+
+  <script>
+    const api = () => document.getElementById('apiUrl').value.replace(/\/$/, '');
+    const auth = () => btoa(document.getElementById('auth').value);
+    const headers = () => ({
+      'Authorization': 'Basic ' + auth(),
+      'Content-Type': 'application/json'
+    });
+
+    function show(id, text, isError = false) {
+      const el = document.getElementById(id);
+      el.textContent = text;
+      el.className = 'output ' + (isError ? 'error' : 'success');
+      el.style.display = 'block';
+    }
+
+    async function req(method, path, body, customerId) {
+      const h = { ...headers() };
+      if (customerId) h['X-Customer-Id'] = customerId;
+      const res = await fetch(api() + path, { method, headers: h, body: body ? JSON.stringify(body) : undefined });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || data.error || res.statusText);
+      return data;
+    }
+
+    async function createCustomer() {
+      try {
+        const data = await req('POST', '/api/v1/customers', {
+          fullName: document.getElementById('fullName').value,
+          email: document.getElementById('email').value
+        });
+        show('customerOut', `Customer created:\n${JSON.stringify(data, null, 2)}\n\nCopy id: ${data.id}`);
+        document.getElementById('customerId').value = data.id;
+        document.getElementById('openAccountCid').value = data.id;
+        document.getElementById('balanceCid').value = data.id;
+        document.getElementById('transferCid').value = data.id;
+      } catch (e) { show('customerOut', e.message, true); }
+    }
+
+    async function approveKyc() {
+      try {
+        const cid = document.getElementById('customerId').value;
+        const data = await req('PATCH', `/api/v1/customers/${cid}/kyc/approve`, {});
+        show('kycOut', JSON.stringify(data, null, 2));
+      } catch (e) { show('kycOut', e.message, true); }
+    }
+
+    async function openAccount() {
+      try {
+        const cid = document.getElementById('openAccountCid').value;
+        const data = await req('POST', `/api/v1/customers/${cid}/accounts`, {
+          type: document.getElementById('accountType').value,
+          currency: document.getElementById('currency').value
+        });
+        show('accountOut', `Account opened:\n${JSON.stringify(data, null, 2)}\n\nCopy id: ${data.id}`);
+        if (!document.getElementById('accountId').value) document.getElementById('accountId').value = data.id;
+        if (!document.getElementById('fromAccount').value) document.getElementById('fromAccount').value = data.id;
+        if (!document.getElementById('fundAccountId').value) document.getElementById('fundAccountId').value = data.id;
+      } catch (e) { show('accountOut', e.message, true); }
+    }
+
+    async function fundAccount() {
+      try {
+        const aid = document.getElementById('fundAccountId').value;
+        const amount = parseInt(document.getElementById('fundAmount').value) || 10000;
+        const res = await fetch(api() + '/internal/seed/fund', {
+          method: 'POST',
+          headers: headers(),
+          body: JSON.stringify({ accountId: aid, amountCents: amount })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || data.error || res.statusText);
+        show('fundOut', `Funded: ${data.balanceCents} cents (${(data.balanceCents / 100).toFixed(2)} CAD)`);
+      } catch (e) { show('fundOut', e.message, true); }
+    }
+
+    async function getBalance() {
+      try {
+        const aid = document.getElementById('accountId').value;
+        const cid = document.getElementById('balanceCid').value;
+        const data = await req('GET', `/api/v1/accounts/${aid}/balance`, null, cid);
+        show('balanceOut', `${data.balanceCents} cents (${(data.balanceCents / 100).toFixed(2)} CAD)`);
+      } catch (e) { show('balanceOut', e.message, true); }
+    }
+
+    async function getLedger() {
+      try {
+        const aid = document.getElementById('accountId').value;
+        const cid = document.getElementById('balanceCid').value;
+        const data = await req('GET', `/api/v1/accounts/${aid}/ledger?page=0&size=20`, null, cid);
+        show('balanceOut', JSON.stringify(data, null, 2));
+      } catch (e) { show('balanceOut', e.message, true); }
+    }
+
+    async function transfer() {
+      try {
+        const cid = document.getElementById('transferCid').value;
+        const body = {
+          fromAccountId: document.getElementById('fromAccount').value,
+          toAccountId: document.getElementById('toAccount').value,
+          amountCents: parseInt(document.getElementById('amountCents').value)
+        };
+        const h = { ...headers(), 'X-Customer-Id': cid, 'Idempotency-Key': 'web-' + Date.now() };
+        const res = await fetch(api() + '/api/v1/transfers', {
+          method: 'POST',
+          headers: h,
+          body: JSON.stringify(body)
+        });
+        const out = await res.json();
+        if (!res.ok) throw new Error(out.message || out.error || res.statusText);
+        show('transferOut', JSON.stringify(out, null, 2));
+      } catch (e) { show('transferOut', e.message, true); }
+    }
+  </script>
+</body>
+</html>

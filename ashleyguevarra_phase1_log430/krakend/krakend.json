@@ -1,7 +1,7 @@
 {
   "version": 3,
-  "name": "BrokerX API Gateway",
-  "timeout": "3000ms",
+  "name": "CanBankX API Gateway",
+  "timeout": "15000ms",
   "port": 8080,
   "endpoints": [
     {
@@ -19,7 +19,7 @@
       ]
     },
     {
-      "endpoint": "/customers",
+      "endpoint": "/api/v1/customers",
       "method": "POST",
       "input_headers": [
         "Authorization",
@@ -31,13 +31,13 @@
           "host": [
             "http://nginx"
           ],
-          "url_pattern": "/customers",
+          "url_pattern": "/api/v1/customers",
           "encoding": "no-op"
         }
       ]
     },
     {
-      "endpoint": "/customers/{customerId}/kyc/approve",
+      "endpoint": "/api/v1/customers/{customerId}/kyc/approve",
       "method": "PATCH",
       "input_headers": [
         "Authorization",
@@ -49,13 +49,13 @@
           "host": [
             "http://nginx"
           ],
-          "url_pattern": "/customers/{customerId}/kyc/approve",
+          "url_pattern": "/api/v1/customers/{customerId}/kyc/approve",
           "encoding": "no-op"
         }
       ]
     },
     {
-      "endpoint": "/customers/{customerId}/accounts",
+      "endpoint": "/api/v1/customers/{customerId}/accounts",
       "method": "POST",
       "input_headers": [
         "Authorization",
@@ -67,13 +67,13 @@
           "host": [
             "http://nginx"
           ],
-          "url_pattern": "/customers/{customerId}/accounts",
+          "url_pattern": "/api/v1/customers/{customerId}/accounts",
           "encoding": "no-op"
         }
       ]
     },
     {
-      "endpoint": "/accounts/{accountId}/balance",
+      "endpoint": "/api/v1/accounts/{accountId}/balance",
       "method": "GET",
       "input_headers": [
         "Authorization",
@@ -86,13 +86,13 @@
           "host": [
             "http://nginx"
           ],
-          "url_pattern": "/accounts/{accountId}/balance",
+          "url_pattern": "/api/v1/accounts/{accountId}/balance",
           "encoding": "no-op"
         }
       ]
     },
     {
-      "endpoint": "/accounts/{accountId}/ledger",
+      "endpoint": "/api/v1/accounts/{accountId}/ledger",
       "method": "GET",
       "input_headers": [
         "Authorization",
@@ -105,13 +105,13 @@
           "host": [
             "http://nginx"
           ],
-          "url_pattern": "/accounts/{accountId}/ledger",
+          "url_pattern": "/api/v1/accounts/{accountId}/ledger",
           "encoding": "no-op"
         }
       ]
     },
     {
-      "endpoint": "/transfers",
+      "endpoint": "/api/v1/transfers",
       "method": "POST",
       "input_headers": [
         "Authorization",
@@ -125,7 +125,7 @@
           "host": [
             "http://nginx"
           ],
-          "url_pattern": "/transfers",
+          "url_pattern": "/api/v1/transfers",
           "encoding": "no-op"
         }
       ]

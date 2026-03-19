@@ -1,0 +1,2 @@
+# Used when SPRING_PROFILES_ACTIVE=account (microservices mode).
+# Set SPRING_FLYWAY_LOCATIONS=classpath:db/migration/account in docker-compose.

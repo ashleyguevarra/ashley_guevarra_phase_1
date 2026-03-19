@@ -1,0 +1,48 @@
+flowchart TB
+    subgraph User["<<Device>> User"]
+        Frontend["Frontend (Nginx:80)"]
+    end
+
+    subgraph CanBankX["CanBankX - Monolith et Microservices"]
+        Gateway["API Gateway (KrakenD:8080)"]
+
+        subgraph Monolith["Mode Monolith"]
+            Mono["canbankx_monolith"]
+            DB_Mono[("PostgreSQL")]
+        end
+
+        subgraph Micro["Mode Microservices"]
+            Acc["account-service"]
+            Trans["transfer-service"]
+            DB_Acc[("PostgreSQL account")]
+            DB_Trans[("PostgreSQL transfer")]
+            Redis["Redis"]
+        end
+    end
+
+    subgraph Stress["Stress test"]
+        k6[k6]
+    end
+
+    subgraph Observability["Observability"]
+        Prometheus[Prometheus]
+        Grafana[Grafana]
+    end
+
+    Frontend -->|HTTPS| Gateway
+    k6 -->|HTTP| Gateway
+
+    Gateway -->|api/v1/*| Mono
+    Gateway -->|api/v1/*| Acc
+    Gateway -->|api/v1/*| Trans
+
+    Mono --> DB_Mono
+    Acc --> DB_Acc
+    Trans --> DB_Trans
+    Trans -->|saga| Acc
+    Trans --> Redis
+
+    Prometheus -->|Scrape| Mono
+    Prometheus -->|Scrape| Acc
+    Prometheus -->|Scrape| Trans
+    Grafana -->|PromQL| Prometheus

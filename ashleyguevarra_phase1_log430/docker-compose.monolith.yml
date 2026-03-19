@@ -1,0 +1,65 @@
+# Monolith mode: single container with both account + transfer profiles
+# Use for comparatif: monolith vs microservices
+services:
+  monolith:
+    build: .
+    container_name: canbankx_monolith
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/canbankx
+      SPRING_DATASOURCE_USERNAME: canbankx
+      SPRING_DATASOURCE_PASSWORD: canbankx
+      SPRING_FLYWAY_LOCATIONS: classpath:db/migration/monolith
+      SERVER_PORT: 8080
+      SPRING_PROFILES_ACTIVE: account,transfer
+      CANBANKX_ACCOUNT_SERVICE_BASE_URL: http://monolith:8080
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16
+    container_name: canbankx_db_monolith
+    environment:
+      POSTGRES_DB: canbankx
+      POSTGRES_USER: canbankx
+      POSTGRES_PASSWORD: canbankx
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U canbankx -d canbankx"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - canbankx_pgdata_monolith:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: canbankx_redis_monolith
+    ports:
+      - "6380:6379"
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:latest
+    container_name: canbankx_nginx_monolith
+    ports:
+      - "8083:80"
+    volumes:
+      - ./nginx/nginx.monolith.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - monolith
+
+  gateway:
+    image: devopsfaith/krakend:2.7
+    container_name: canbankx_gateway_monolith
+    depends_on:
+      - nginx
+    ports:
+      - "8091:8080"
+    volumes:
+      - ./krakend/krakend.json:/etc/krakend/krakend.json:ro
+    command: ["run", "-c", "/etc/krakend/krakend.json"]
+
+volumes:
+  canbankx_pgdata_monolith:

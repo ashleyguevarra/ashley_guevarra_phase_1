@@ -4,11 +4,13 @@ import com.ashleyguevarra.phase1.customer.dto.RegisterCustomerRequest;
 import com.ashleyguevarra.phase1.customer.dto.RegisterCustomerResponse;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.context.annotation.Profile;
 
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/customers")
+@Profile("account")
+@RequestMapping("/api/v1/customers")
 public class KycController {
 
     private final RegisterCustomerService registerService;

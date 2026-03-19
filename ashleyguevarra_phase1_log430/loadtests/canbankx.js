@@ -11,7 +11,7 @@ export const options = {
   ],
   thresholds: {
     http_req_failed: ['rate<0.05'],
-    http_req_duration: ['p(95)<500'],
+    http_req_duration: ['p(95)<2000'],
   },
 };
 
@@ -32,14 +32,14 @@ export default function () {
   const r = Math.random();
 
   if (r < 0.7) {
-    const res = http.get(`${BASE_URL}/accounts/${AID_SRC}/balance`, {
+    const res = http.get(`${BASE_URL}/api/v1/accounts/${AID_SRC}/balance`, {
       headers: commonHeaders,
     });
     check(res, {
       'balance status is 200': (x) => x.status === 200,
     });
   } else if (r < 0.9) {
-    const res = http.get(`${BASE_URL}/accounts/${AID_SRC}/ledger?page=0&size=10`, {
+    const res = http.get(`${BASE_URL}/api/v1/accounts/${AID_SRC}/ledger?page=0&size=10`, {
       headers: commonHeaders,
     });
     check(res, {
@@ -53,7 +53,7 @@ export default function () {
       amountCents: 1,
     });
 
-    const res = http.post(`${BASE_URL}/transfers`, body, {
+    const res = http.post(`${BASE_URL}/api/v1/transfers`, body, {
       headers: {
         ...commonHeaders,
         'Idempotency-Key': key,

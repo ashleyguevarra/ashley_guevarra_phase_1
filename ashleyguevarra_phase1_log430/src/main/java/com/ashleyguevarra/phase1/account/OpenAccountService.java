@@ -4,6 +4,7 @@ import com.ashleyguevarra.phase1.audit.AuditLog;
 import com.ashleyguevarra.phase1.audit.AuditLogRepository;
 import com.ashleyguevarra.phase1.customer.Customer;
 import com.ashleyguevarra.phase1.customer.CustomerRepository;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -11,6 +12,7 @@ import java.util.Set;
 import java.util.UUID;
 
 @Service
+@Profile("account")
 public class OpenAccountService {
 
     private static final Set<String> SUPPORTED_CURRENCIES = Set.of("CAD", "USD");

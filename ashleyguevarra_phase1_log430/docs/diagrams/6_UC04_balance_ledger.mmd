@@ -1,0 +1,25 @@
+sequenceDiagram
+    participant Client
+    participant AccountConsultController
+    participant ConsultAccountService
+    participant AccountRepository
+    participant LedgerEntryRepository
+    participant DB as PostgreSQL
+
+    Client->>AccountConsultController: GET /api/v1/accounts/{id}/balance (X-Customer-Id)
+    AccountConsultController->>ConsultAccountService: getBalance(accountId, customerId)
+    ConsultAccountService->>AccountRepository: findById(accountId)
+    AccountRepository->>DB: SELECT account
+    AccountRepository-->>ConsultAccountService: Account
+    ConsultAccountService->>ConsultAccountService: Vérifier ownership
+    ConsultAccountService-->>AccountConsultController: balanceCents
+    AccountConsultController-->>Client: 200 + BalanceResponse
+
+    Note over Client,DB: Pour l'historique (ledger):
+    Client->>AccountConsultController: GET /api/v1/accounts/{id}/ledger
+    AccountConsultController->>ConsultAccountService: getHistory(accountId, customerId)
+    ConsultAccountService->>LedgerEntryRepository: findByAccountIdOrderByCreatedAtDesc
+    LedgerEntryRepository->>DB: SELECT ledger_entries
+    LedgerEntryRepository-->>ConsultAccountService: Page<LedgerEntry>
+    ConsultAccountService-->>AccountConsultController: Page
+    AccountConsultController-->>Client: 200 + LedgerPageResponse

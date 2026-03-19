@@ -4,12 +4,14 @@ import com.ashleyguevarra.phase1.account.dto.OpenAccountRequest;
 import com.ashleyguevarra.phase1.account.dto.OpenAccountResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/customers/{customerId}/accounts")
+@Profile("account")
+@RequestMapping("/api/v1/customers/{customerId}/accounts")
 public class AccountController {
 
     private final OpenAccountService openAccountService;

@@ -1,0 +1,20 @@
+flowchart LR
+    subgraph Monolith["Mode Monolith — Tous les services dans un processus"]
+        RegM[RegisterCustomerService]
+        ApproveM[ApproveKycService]
+        OpenM[OpenAccountService]
+        ConsultM[ConsultAccountService]
+        TransM[TransferService]
+    end
+
+    subgraph Micro["Mode Microservices — Services répartis"]
+        subgraph AccountSvc["account-service"]
+            Reg[RegisterCustomerService]
+            Approve[ApproveKycService]
+            Open[OpenAccountService]
+            Consult[ConsultAccountService]
+        end
+        subgraph TransferSvc["transfer-service"]
+            Trans[TransferService]
+        end
+    end

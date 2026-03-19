@@ -41,13 +41,13 @@ MONTRÉAL, LE 8 MARS 2026
 
 <div style="page-break-before: always;"></div>
 
-# Arc42 - BrokerX Banking API
+# Arc42 - CanBankX Banking API
 
 # 1. Introduction et objectifs
 
 ## 1.1 Objectifs métier
 
-Le projet **BrokerX Banking API** vise à concevoir une plateforme bancaire en ligne destinée aux investisseurs particuliers.
+Le projet **CanBankX Banking API** vise à concevoir une plateforme bancaire en ligne destinée aux investisseurs particuliers.
 
 Dans la **Phase 1**, l’objectif est de livrer un **MVP fonctionnel** permettant de démontrer les capacités principales du système bancaire via une API REST sécurisée.
 
@@ -112,7 +112,7 @@ Le système doit respecter plusieurs objectifs de qualité afin d’assurer sa r
 | Équipe de développement | Étudiants LOG430 | Architecture claire, maintenable et testable |
 | Architecte logiciel | Responsable de l’architecture | Documentation des décisions architecturales |
 | Enseignant / Correcteur | Professeur LOG430 | Documentation complète et reproductible |
-| BrokerX (organisation fictive) | Commanditaire du système | Respect des contraintes bancaires et réglementaires |
+| CanBankX (organisation fictive) | Commanditaire du système | Respect des contraintes bancaires et réglementaires |
 | Autorités réglementaires | Régulateurs financiers | Vérification KYC et auditabilité des transactions |
 
 # 2. Contraintes architecturales
@@ -208,12 +208,25 @@ Acteurs externes :
 - **Système bancaire externe (simulé)** : pourrait valider certaines opérations financières dans une version future
 
 <p style="text-align: center;">
-  <img src="./Images/3.1_Diagram.png" alt="Figure 1" width="600">
-  <br>
-  <em>Figure 1. Diagramme</em>
+  <em>Figure 1. Contexte métier</em>
 </p>
 
-| Partenaire externe | Entrées vers BrokerX | Sorties de BrokerX |
+```mermaid
+flowchart LR
+    Client([Client])
+    KYC([Service KYC simulé])
+    Ext([Système bancaire externe futur])
+    CanBankX[CanBankX Banking API]
+    
+    Client -->|Informations personnelles, demande compte, virement| CanBankX
+    CanBankX -->|Confirmation, infos compte, résultat virement| Client
+    KYC -->|Données personnelles| CanBankX
+    CanBankX -->|Résultat validation KYC| KYC
+    Ext -.->|Demande transaction futur| CanBankX
+    CanBankX -.->|Confirmation/rejet futur| Ext
+```
+
+| Partenaire externe | Entrées vers CanBankX | Sorties de CanBankX |
 |-------------------|----------------------|-------------------|
 | Client | Informations personnelles, demande d’ouverture de compte, demande de virement | Confirmation d’inscription, informations de compte, résultat du virement |
 | Service KYC (simulé) | Données personnelles du client | Résultat de la validation KYC |
@@ -223,7 +236,7 @@ Acteurs externes :
 
 # 3.2 Contexte technique
 
-Le système BrokerX interagit avec les utilisateurs et services externes via plusieurs interfaces techniques.
+Le système CanBankX interagit avec les utilisateurs et services externes via plusieurs interfaces techniques.
 
 | Partenaire externe | Canal / Protocole | Usage principal |
 |-------------------|------------------|----------------|
@@ -236,6 +249,58 @@ Les interactions principales utilisent :
 - **HTTP(S) REST** pour les opérations bancaires
 - **JSON** comme format d’échange de données
 - **PostgreSQL** pour la persistance des données
+- **Deux modes de déploiement** : **Monolith** (un conteneur) ou **Microservices** (account-service + transfer-service, database per service)
+
+```mermaid
+flowchart TB
+    subgraph User["<<Device>> User"]
+        Frontend["Frontend (Nginx:80)"]
+    end
+
+    subgraph CanBankX["CanBankX - Monolith et Microservices"]
+        Gateway["API Gateway (KrakenD:8080)"]
+
+        subgraph Monolith["Mode Monolith"]
+            Mono["canbankx_monolith"]
+            DB_Mono[("PostgreSQL")]
+        end
+
+        subgraph Micro["Mode Microservices"]
+            Acc["account-service"]
+            Trans["transfer-service"]
+            DB_Acc[("PostgreSQL account")]
+            DB_Trans[("PostgreSQL transfer")]
+            Redis["Redis"]
+        end
+    end
+
+    subgraph Stress["Stress test"]
+        k6[k6]
+    end
+
+    subgraph Observability["Observability"]
+        Prometheus[Prometheus]
+        Grafana[Grafana]
+    end
+
+    Frontend -->|HTTPS| Gateway
+    k6 -->|HTTP| Gateway
+
+    Gateway -->|api/v1/*| Mono
+    Gateway -->|api/v1/*| Acc
+    Gateway -->|api/v1/*| Trans
+
+    Mono --> DB_Mono
+    Acc --> DB_Acc
+    Trans --> DB_Trans
+    Trans -->|saga| Acc
+    Trans --> Redis
+
+    Prometheus -->|Scrape| Mono
+    Prometheus -->|Scrape| Acc
+    Prometheus -->|Scrape| Trans
+    Grafana -->|PromQL| Prometheus
+```
 
 Cette architecture permet une **séparation claire entre l’API, la logique métier et la couche de persistance**.
 
@@ -243,7 +308,7 @@ Cette architecture permet une **séparation claire entre l’API, la logique mé
 
 ## Contenu
 
-La stratégie de solution présente les décisions architecturales fondamentales qui structurent le système **BrokerX Banking API**.
+La stratégie de solution présente les décisions architecturales fondamentales qui structurent le système **CanBankX Banking API**.
 
 Elle inclut :
 
@@ -328,7 +393,7 @@ Le système est déployé dans un environnement conteneurisé grâce à **Docker
 
 L’environnement comprend :
 
-- un conteneur pour l’application **BrokerX Banking API**
+- un conteneur pour l’application **CanBankX Banking API**
 - un conteneur pour la base de données **PostgreSQL**
 
 Un pipeline **CI/CD** est également utilisé afin d’automatiser :
@@ -359,7 +424,7 @@ Enfin, la séparation claire des couches applicatives facilite la maintenance du
 
 ## Contexte
 
-Le projet BrokerX doit implémenter plusieurs cas d’utilisation bancaires via une API REST :
+Le projet CanBankX doit implémenter plusieurs cas d’utilisation bancaires via une API REST :
 
 - enregistrement d’un client
 - validation KYC
@@ -382,12 +447,14 @@ Le projet est structuré en plusieurs couches :
 
 Cette structure permet une séparation claire entre logique métier et aspects techniques.
 
+Le système supporte **deux modes de déploiement** avec la même architecture en couches : **Monolith** (un seul processus) et **Microservices** (account-service + transfer-service). Chaque microservice applique les mêmes couches (Domain, Application, Infrastructure).
+
 ## Conséquences
 
 ✅ code plus modulaire  
 ✅ logique métier isolée  
 ✅ tests plus faciles  
-✅ préparation à une évolution vers microservices  
+✅ déploiement flexible (Monolith ou Microservices)  
 
 ❌ structure initiale légèrement plus complexe
 
@@ -416,15 +483,17 @@ Le système vérifie si cette clé existe déjà :
 - si oui → le transfert existant est retourné
 - sinon → un nouveau transfert est créé
 
-Les opérations de transfert sont exécutées dans une **transaction de base de données** afin de garantir la cohérence.
+**Mode Monolith** : les opérations sont exécutées dans une **transaction de base de données** unique.
+
+**Mode Microservices** : une **saga orchestrée** est utilisée (debit → credit → complete-ledger). L'idempotence des étapes internes est assurée via la table `saga_steps` et des verrous Redis. En cas d'échec, une compensation (compensate-debit) annule le débit.
 
 ## Conséquences
 
 ✅ évite les doubles virements  
 ✅ améliore la fiabilité de l’API  
-✅ garantit la cohérence des données  
+✅ garantit la cohérence des données (transaction ou saga)  
 
-❌ nécessite la gestion d’une clé d’idempotence
+❌ nécessite la gestion d’une clé d’idempotence et, en microservices, d’une saga
 
 # ADR-003 — Observabilité (logs, métriques et monitoring)
 
@@ -436,7 +505,7 @@ Les opérations de transfert sont exécutées dans une **transaction de base de 
 
 Il est nécessaire de pouvoir observer le comportement du système afin de détecter les erreurs et mesurer les performances.
 
-Le projet BrokerX doit permettre d’analyser les **4 Golden Signals** :
+Le projet CanBankX doit permettre d’analyser les **4 Golden Signals** :
 
 - latence
 - trafic
@@ -456,19 +525,21 @@ Les métriques sont exposées via :
 
 `/actuator/prometheus`
 
+Des **tests de charge k6** permettent de comparer les performances Monolith vs Microservices dans des conditions identiques (même scénario, même charge).
+
 ## Conséquences
 
 ✅ meilleure visibilité sur le système  
 ✅ détection rapide des erreurs  
-✅ analyse des performances lors des tests de charge  
+✅ comparaison Monolith vs Microservices (RPS, latence P95, taux d'erreur)  
 
-❌ nécessite des composants supplémentaires
+❌ nécessite des composants supplémentaires (Prometheus, Grafana)
 
 # 5. Vue des blocs de construction
 
 ## Contenu
 
-La vue des blocs de construction décrit la décomposition statique du système **BrokerX Banking API** en différents blocs logiciels.
+La vue des blocs de construction décrit la décomposition statique du système **CanBankX Banking API** en différents blocs logiciels.
 
 Elle présente les principaux modules du système ainsi que leurs relations et dépendances.
 
@@ -489,9 +560,9 @@ La vue est organisée en plusieurs niveaux afin de présenter progressivement le
 
 ---
 
-# Niveau 1 — Système global BrokerX
+# Niveau 1 — Système global CanBankX
 
-Le système **BrokerX Banking API** est structuré selon une architecture en couches inspirée de l’architecture hexagonale.
+Le système **CanBankX Banking API** est structuré selon une architecture en couches inspirée de l’architecture hexagonale.
 
 Les principaux blocs sont :
 
@@ -513,10 +584,51 @@ Le système est également organisé autour de plusieurs modules métier princip
 Diagramme de niveau 1 :
 
 <p style="text-align: center;">
-  <img src="./Images/5_Niveau1.png" alt="Figure 2" width="600">
-  <br>
   <em>Figure 2. Diagramme Niveau 1</em>
 </p>
+
+```mermaid
+flowchart TB
+    subgraph CanBankX["CanBankX Banking API"]
+        subgraph AccountService["account-service"]
+            Kyc[KycController]
+            AccCtrl[AccountController]
+            Consult[AccountConsultController]
+            SagaInternal[InternalAccountSagaController]
+        end
+        subgraph TransferService["transfer-service"]
+            TransCtrl[TransferController]
+            TransSvc[TransferService]
+        end
+    end
+
+    subgraph Domaine
+        Customer[Customer]
+        Account[Account]
+        Transfer[Transfer]
+        Ledger[LedgerEntry]
+        Audit[AuditLog]
+    end
+
+    Kyc --> Customer
+    AccCtrl --> Account
+    Consult --> Account
+    Consult --> Ledger
+    SagaInternal --> Account
+    TransCtrl --> TransSvc
+    TransSvc --> Transfer
+    TransSvc --> SagaInternal
+
+    subgraph Infra
+        DB[(PostgreSQL)]
+    end
+
+    Account --> DB
+    Customer --> DB
+    Transfer --> DB
+    Ledger --> DB
+    Audit --> DB
+```
 
 ## Niveau 2 — Couche Domaine
 
@@ -530,13 +642,27 @@ Les principales entités sont :
 - **LedgerEntry** : représente une écriture comptable de débit ou de crédit
 - **AuditLog** : représente une trace des opérations critiques du système
 
-Cette couche contient les règles métier principales du système et ne dépend pas des couches techniques.
+Cette couche contient les règles métier principales du système et ne dépend pas des couches techniques. Les entités du domaine sont **identiques** en mode Monolith et en mode Microservices.
 
 <p style="text-align: center;">
-  <img src="./Images/5_Niveau2.1.png" alt="Figure 3" width="600">
-  <br>
   <em>Figure 3. Diagramme Niveau 2 Couche Domaine</em>
 </p>
+
+```mermaid
+flowchart TB
+    subgraph Domaine["Couche Domaine — Identique en Monolith et Microservices"]
+        Customer[Customer]
+        Account[Account]
+        Transfer[Transfer]
+        Ledger[LedgerEntry]
+        Audit[AuditLog]
+    end
+
+    Customer --> Account
+    Account --> Ledger
+    Transfer --> Ledger
+    Transfer --> Audit
+```
 
 ---
 
@@ -552,13 +678,34 @@ Les principaux services identifiés dans le projet sont :
 - **ConsultAccountService** : consultation du solde et de l’historique (ledger)
 - **TransferService** : exécution des virements entre comptes avec gestion de l’idempotence
 
-Ces services implémentent les règles métier du système et coordonnent les interactions entre les entités du domaine, les repositories et les mécanismes transverses comme l’audit.
+Ces services implémentent les règles métier du système et coordonnent les interactions entre les entités du domaine, les repositories et les mécanismes transverses comme l'audit. En **mode Monolith**, tous les services s'exécutent dans un seul processus. En **mode Microservices**, ils sont répartis entre account-service et transfer-service.
 
 <p style="text-align: center;">
-  <img src="./Images/5_Niveau2.2.png" alt="Figure 4" width="600">
-  <br>
   <em>Figure 4. Diagramme Niveau 2 Couche Application</em>
 </p>
+
+```mermaid
+flowchart LR
+    subgraph Monolith["Mode Monolith — Tous les services dans un processus"]
+        RegM[RegisterCustomerService]
+        ApproveM[ApproveKycService]
+        OpenM[OpenAccountService]
+        ConsultM[ConsultAccountService]
+        TransM[TransferService]
+    end
+
+    subgraph Micro["Mode Microservices — Services répartis"]
+        subgraph AccountSvc["account-service"]
+            Reg[RegisterCustomerService]
+            Approve[ApproveKycService]
+            Open[OpenAccountService]
+            Consult[ConsultAccountService]
+        end
+        subgraph TransferSvc["transfer-service"]
+            Trans[TransferService]
+        end
+    end
+```
 
 ---
 
@@ -583,19 +730,57 @@ Elle inclut notamment :
 - la gestion centralisée des erreurs via **ApiExceptionHandler**
 - l’accès à la base de données **PostgreSQL**
 
-Cette couche dépend des autres couches mais celles-ci ne dépendent pas directement des détails techniques qu’elle implémente.
+Cette couche dépend des autres couches mais celles-ci ne dépendent pas directement des détails techniques qu'elle implémente. En **mode Monolith**, un seul PostgreSQL et tous les contrôleurs/repositories dans un processus. En **mode Microservices**, database per service (PostgreSQL account, PostgreSQL transfer), Redis pour les verrous de saga, et contrôleurs répartis par service.
 
 <p style="text-align: center;">
-  <img src="./Images/5_Niveau2.3.png" alt="Figure 5" width="600">
-  <br>
   <em>Figure 5. Diagramme Niveau 2 Couche Infrastructure</em>
 </p>
+
+```mermaid
+flowchart TB
+    subgraph Monolith["Mode Monolith"]
+        subgraph ControllersM["Contrôleurs (1 processus)"]
+            KycM[KycController]
+            AccM[AccountController]
+            ConsultM[AccountConsultController]
+            TransM[TransferController]
+        end
+        subgraph ReposM["Repositories"]
+            CustM[CustomerRepository]
+            AccRepoM[AccountRepository]
+            TransRepoM[TransferRepository]
+            LedgerM[LedgerEntryRepository]
+            AuditM[AuditLogRepository]
+        end
+        DB_Mono[("PostgreSQL unique")]
+    end
+
+    subgraph Micro["Mode Microservices"]
+        subgraph AccInfra["account-service"]
+            Kyc[KycController]
+            Acc[AccountController]
+            Consult[AccountConsultController]
+            Saga[InternalAccountSagaController]
+            Cust[CustomerRepository]
+            AccRepo[AccountRepository]
+            Ledger[LedgerEntryRepository]
+            Audit[AuditLogRepository]
+            DB_Acc[("PostgreSQL account")]
+        end
+        subgraph TransInfra["transfer-service"]
+            Trans[TransferController]
+            TransRepo[TransferRepository]
+            Redis[Redis]
+            DB_Trans[("PostgreSQL transfer")]
+        end
+    end
+```
 
 # 6. Vue dynamique (Runtime View)
 
 ## Contenu
 
-La vue dynamique décrit le comportement concret du système **BrokerX Banking API** à l’exécution, sous forme de scénarios.
+La vue dynamique décrit le comportement concret du système **CanBankX Banking API** à l’exécution, sous forme de scénarios.
 
 Ces scénarios illustrent :
 
@@ -623,14 +808,14 @@ Les cinq cas d’utilisation principaux du système sont présentés ci-dessous.
 
 ## Scénario 1 — UC-01 : Enregistrement d’un client
 
-1. Le client envoie une requête HTTP `POST /customers`.
-2. `CustomerController` reçoit la requête et la transmet à `CustomerService`.
-3. `CustomerService` valide les données reçues.
-4. `CustomerService` crée un nouvel objet `Customer`.
-5. `CustomerService` demande à `CustomerRepository` de sauvegarder le client.
+1. Le client envoie une requête HTTP `POST /api/v1/customers`.
+2. `KycController` reçoit la requête et la transmet à `RegisterCustomerService`.
+3. `RegisterCustomerService` valide les données reçues.
+4. `RegisterCustomerService` crée un nouvel objet `Customer`.
+5. `RegisterCustomerService` demande à `CustomerRepository` de sauvegarder le client.
 6. Le repository persiste les données dans PostgreSQL.
 7. La confirmation de création est retournée au contrôleur.
-8. `CustomerController` retourne la réponse HTTP au client.
+8. `KycController` retourne la réponse HTTP au client.
 
 ### Diagramme de séquence — UC-01
 
@@ -642,13 +827,13 @@ Les cinq cas d’utilisation principaux du système sont présentés ci-dessous.
 
 ## Scénario 2 — UC-02 : Vérification KYC
 
-1. Le client ou l’administrateur envoie une requête HTTP `PATCH /customers/{id}/kyc/approve`.
-2. `CustomerController` reçoit la requête et la transmet à `CustomerService`.
-3. `CustomerService` récupère le client via `CustomerRepository`.
+1. Le client ou l’administrateur envoie une requête HTTP `PATCH /api/v1/customers/{id}/kyc/approve`.
+2. `KycController` reçoit la requête et la transmet à `ApproveKycService`.
+3. `ApproveKycService` récupère le client via `CustomerRepository`.
 4. Le service vérifie que le client existe.
-5. Le statut KYC du client est mis à jour.
+5. Le statut KYC du client est mis à jour (APPROVED).
 6. `CustomerRepository` persiste la modification dans la base de données.
-7. `CustomerController` retourne la confirmation de la vérification KYC.
+7. `KycController` retourne la confirmation de la vérification KYC.
 
 ### Diagramme de séquence — UC-02
 
@@ -664,9 +849,9 @@ Les cinq cas d’utilisation principaux du système sont présentés ci-dessous.
 
 ## Scénario 3 — UC-03 : Ouverture d’un compte bancaire
 
-1. Le client envoie une requête HTTP `POST /accounts`.
-2. `AccountController` reçoit la requête et la transmet à `AccountService`.
-3. `AccountService` vérifie que le client existe via `CustomerRepository`.
+1. Le client envoie une requête HTTP `POST /api/v1/customers/{customerId}/accounts`.
+2. `AccountController` reçoit la requête et la transmet à `OpenAccountService`.
+3. `OpenAccountService` vérifie que le client existe via `CustomerRepository`.
 4. Le service vérifie que le statut KYC du client est approuvé.
 5. Si le KYC n’est pas validé, une erreur est retournée.
 6. Si le KYC est validé, un nouvel objet `Account` est créé.
@@ -687,12 +872,12 @@ Les cinq cas d’utilisation principaux du système sont présentés ci-dessous.
 
 ## Scénario 4 — UC-04 : Consultation du solde et de l’historique
 
-1. Le client envoie une requête HTTP `GET /accounts/{id}/balance`.
-2. `AccountController` reçoit la requête et la transmet à `AccountService`.
-3. `AccountService` récupère le compte via `AccountRepository`.
-4. Le service extrait le solde du compte.
-5. Le solde est retourné au contrôleur.
-6. `AccountController` retourne la réponse au client.
+1. Le client envoie une requête HTTP `GET /api/v1/accounts/{id}/balance` (ou `GET /api/v1/accounts/{id}/ledger`) avec le header `X-Customer-Id`.
+2. `AccountConsultController` reçoit la requête et la transmet à `ConsultAccountService`.
+3. `ConsultAccountService` récupère le compte via `AccountRepository` et vérifie l’ownership.
+4. Pour le solde : le service retourne `balanceCents`. Pour l’historique : `LedgerEntryRepository` retourne les écritures.
+5. La réponse est retournée au contrôleur.
+6. `AccountConsultController` retourne la réponse au client.
 
 ### Diagramme de séquence — UC-04
 
@@ -706,59 +891,66 @@ Les cinq cas d’utilisation principaux du système sont présentés ci-dessous.
 
 # UC-05
 
-## Scénario 5 — UC-05 : Virement entre comptes
+## Scénario 5 — UC-05 : Virement entre comptes (Saga orchestrée)
 
-1. Le client envoie une requête HTTP `POST /transfers` avec une `Idempotency-Key`.
-2. `TransferController` reçoit la requête et la transmet à `TransferService`.
-3. `TransferService` vérifie si un transfert avec la même clé existe déjà.
-4. Si oui, le transfert existant est retourné.
-5. Sinon, le service charge les comptes source et destination via `AccountRepository`.
-6. Le service vérifie que le compte source possède un solde suffisant.
-7. Si le solde est insuffisant, une erreur est retournée.
-8. Si le solde est suffisant, un objet `Transfer` est créé.
-9. `TransferRepository` persiste le transfert.
-10. Les soldes des comptes sont mis à jour.
-11. Une entrée est enregistrée dans `audit_log`.
-12. `TransferController` retourne la confirmation du virement.
+1. Le client envoie une requête HTTP `POST /api/v1/transfers` avec une `Idempotency-Key` et `X-Customer-Id`.
+2. La requête traverse KrakenD → NGINX → `TransferController` (transfer-service).
+3. `TransferService` vérifie l’idempotence via `saga_steps` et crée un `Transfer` (PENDING).
+4. `TransferService` appelle account-service : `POST /internal/saga/debit` (débit du compte source).
+5. Si le débit échoue (solde insuffisant), le transfert reste FAILED.
+6. Si le débit réussit, `TransferService` appelle `POST /internal/saga/credit` (crédit du compte destination).
+7. Si le crédit échoue, `TransferService` appelle `POST /internal/saga/compensate-debit` pour annuler le débit.
+8. Si tout réussit : enregistrement des écritures ledger (DEBIT, CREDIT), audit, statut COMPLETED.
+9. `TransferController` retourne la confirmation du virement.
 
-### Diagramme de séquence — UC-05
+### Diagramme de séquence — UC-05 (Saga)
 
 <p style="text-align: center;">
   <img src="./Images/6_UC05.png" alt="Figure 10" width="600">
   <br>
-  <em>Figure 10. Diagramme UC05</em>
+  <em>Figure 10. Diagramme UC05 (Saga)</em>
 </p>
 
-### Observabilité et métriques d’exécution
+### Observabilité et métriques d'exécution — Comparaison Monolith vs Microservices
 
-Afin de mesurer le comportement du système sous charge, une infrastructure d’observabilité a été mise en place.
+Afin de **comparer le comportement du Monolith et des Microservices** sous charge, une infrastructure d'observabilité a été mise en place.
 
-Les métriques applicatives sont collectées par **Prometheus** et visualisées via **Grafana**.
+Les métriques applicatives sont collectées par **Prometheus** et visualisées via **Grafana** pour les deux modes de déploiement :
 
-Le tableau de bord Grafana permet de suivre les **4 Golden Signals** :
+- **Mode Monolith** : un seul conteneur `canbankx_monolith`, une base PostgreSQL
+- **Mode Microservices** : `account-service` + `transfer-service`, bases PostgreSQL distinctes, Redis
+
+Le tableau de bord Grafana permet de suivre les **4 Golden Signals** pour chaque architecture :
 
 - **Traffic** : nombre de requêtes par seconde (RPS)
 - **Latency** : temps de réponse moyen des requêtes
 - **Errors** : taux d’erreurs HTTP (4xx / 5xx)
 - **Saturation** : utilisation des ressources (JVM heap memory)
 
-Ces métriques ont été observées pendant les campagnes de tests de charge réalisées avec **k6**.
+Les campagnes de tests de charge réalisées avec **k6** permettent de comparer les deux architectures dans des conditions identiques (même scénario, même charge : 70 % balance, 20 % ledger, 10 % transfers, rampe 10→25→50 VUs).
 
-<p style="text-align: center;">
-  <img src="./Images/Grafana.png" alt="Grafana Dashboard" width="800">
-  <br>
-  <em>Figure 11. Dashboard Grafana montrant les métriques d'observabilité du système</em>
-</p>
+#### Résultats comparatifs k6 — Monolith vs Microservices
 
-Les résultats permettent de visualiser le comportement du système lorsque plusieurs instances applicatives sont déployées derrière le load balancer NGINX.
+| Métrique | Monolith (8091) | Microservices (8082/8090) |
+|----------|-----------------|---------------------------|
+| **RPS** (requêtes/s) | 18,6 | 18,1 |
+| **Latence P95** (ms) | 202 | 316 |
+| **Taux d'erreur** (%) | 0,00 | 0,00 |
+| **http_req_failed** | 0/2050 | 0/2007 |
+
+*Même scénario k6 (70 % balance, 20 % ledger, 10 % transfers, rampe 10→25→50 VUs).*
+
+**Note** : Les résultats montrent une latence P95 plus faible pour le Monolith (202 ms vs 316 ms). Ce comportement est **attendu** dans ce contexte (une instance par architecture). Le Monolith évite les appels HTTP entre services (transfer-service → account-service pour la saga), ce qui réduit la latence. Les microservices sont privilégiés pour la scalabilité, l’indépendance des déploiements et la résilience — pas pour la performance brute en configuration mono-instance.
+
+Les résultats permettent de visualiser les différences de comportement entre le Monolith (un seul processus) et les Microservices (plusieurs instances derrière le load balancer NGINX).
 
 # 7. Vue de déploiement (Deployment View)
 
 ## Contenu
 
-La vue de déploiement décrit l’infrastructure technique utilisée pour exécuter le système **BrokerX Banking API**, ainsi que la manière dont les composants logiciels sont déployés sur cette infrastructure.
+La vue de déploiement décrit l’infrastructure technique utilisée pour exécuter le système **CanBankX Banking API**, ainsi que la manière dont les composants logiciels sont déployés sur cette infrastructure.
 
-Dans la Phase 1, le système est déployé sous forme d’une application **monolithique conteneurisée avec Docker**.
+Dans la Phase 1, le système est déployé sous forme d’une application **architecture microservices** (account-service, transfer-service) conteneurisée avec Docker.
 
 Cette vue inclut :
 
@@ -791,16 +983,21 @@ Documenter cette vue permet de :
 
 ### Développement local
 
-Le système peut être exécuté localement par les développeurs via la commande :
+Le système peut être exécuté localement via Docker :
 
-docker-compose up
+**Mode Monolith** (un seul conteneur applicatif) :
+```bash
+docker compose -f docker-compose.monolith.yml up
+```
+- Ports : Gateway 8091, Nginx 8083
 
-Cette configuration démarre automatiquement :
+**Mode Microservices** (account-service + transfer-service) :
+```bash
+docker compose -f docker-compose.lb.yml up
+```
+- Ports : Gateway 8090, Nginx 8082
 
-- le conteneur de l’application
-- le conteneur de base de données
-
-Cela permet de reproduire facilement l’environnement d’exécution.
+Cela permet de reproduire facilement l’environnement d’exécution et de comparer les deux architectures.
 
 ### Environnement de démonstration (VM)
 
@@ -820,65 +1017,136 @@ Cependant, l’architecture conteneurisée permettrait facilement une évolution
 
 ## 7.2 Déploiement physique
 
-L’infrastructure du système repose sur deux conteneurs Docker principaux.
+Le système supporte deux modes de déploiement.
 
-### Conteneur brokerx_app
+### Mode Monolith
 
-Ce conteneur contient l’application **BrokerX Banking API** développée en Java avec Spring Boot.
+Un seul conteneur applicatif (`canbankx_monolith`) exécute l’ensemble des fonctionnalités (account + transfer). Une base PostgreSQL partagée. Ports : Gateway 8091, Nginx 8083.
 
-Responsabilités :
+### Mode Microservices
 
-- exposition de l’API REST
-- gestion des cas d’utilisation
-- implémentation de la logique métier
-- gestion des transactions
-- journalisation des actions
+L’infrastructure repose sur plusieurs conteneurs Docker.
 
-### Conteneur brokerx_db
+### Conteneur canbankx_gateway
 
-Ce conteneur contient la base de données **PostgreSQL**.
+Point d’entrée API (KrakenD) exposant les routes publiques.
 
-Responsabilités :
+### Conteneur canbankx_nginx
 
-- stockage des données du système
-- gestion des clients
-- gestion des comptes
-- stockage des transactions
-- stockage des écritures comptables et des logs d’audit
+Load balancer NGINX routant les requêtes vers les microservices.
 
-Les deux conteneurs communiquent via un **réseau Docker interne**.
+### Conteneur canbankx_account_service
+
+Microservice Java/Spring Boot gérant les clients, KYC, comptes et le ledger.
+
+### Conteneur canbankx_transfer_service
+
+Microservice Java/Spring Boot gérant les virements et l’orchestration de la saga UC-05.
+
+### Conteneur canbankx_db_account
+
+Base de données **PostgreSQL** du microservice account (customers, accounts, ledger_entries, audit_log, saga_steps).
+
+### Conteneur canbankx_db_transfer
+
+Base de données **PostgreSQL** du microservice transfer (transfers).
+
+### Conteneur canbankx_redis_lb
+
+Cache **Redis** pour la coordination de la saga (verrous distribués).
+
+Les conteneurs communiquent via le **réseau Docker interne** `canbankx-net`.
 
 ---
 
 ## 7.3 Déploiement logique
 
-Le déploiement logique décrit comment les composants logiciels du système BrokerX sont répartis sur l’infrastructure technique.
+Le déploiement logique décrit comment les composants logiciels du système CanBankX sont répartis sur l’infrastructure technique.
 
-Le système repose sur une application monolithique exécutée dans un conteneur Docker et connectée à une base de données PostgreSQL dans un conteneur séparé.
+**Mode Monolith** : tous les composants (KycController, AccountController, TransferController, etc.) s’exécutent dans un seul conteneur, connecté à une base PostgreSQL partagée.
+
+**Mode Microservices** : deux services applicatifs, une base PostgreSQL par service (database per service) et Redis.
 
 | Composant logiciel | Infrastructure cible | Détails |
 |--------------------|---------------------|--------|
-| Application monolithique | Conteneur `brokerx_app` | Application Java 17 / Spring Boot exposant l’API REST |
-| Couche API | `brokerx_app` | Controllers REST gérant les requêtes HTTP |
-| Couche application | `brokerx_app` | Services orchestrant les cas d’utilisation (CustomerService, AccountService, TransferService) |
-| Couche domaine | `brokerx_app` | Entités métier (Customer, Account, Transfer, LedgerEntry) |
-| Couche infrastructure | `brokerx_app` | Repositories JPA et accès aux ressources techniques |
-| Base de données | Conteneur `brokerx_db` | PostgreSQL utilisé pour la persistance des données |
-| Réseau applicatif | `brokerx-net` | Réseau Docker interne permettant la communication entre l’application et la base de données |
+| account-service | Conteneur `canbankx_account_service` | KycController, AccountController, AccountConsultController, InternalAccountSagaController |
+| transfer-service | Conteneur `canbankx_transfer_service` | TransferController, orchestration saga UC-05 |
+| Base account | Conteneur `canbankx_db_account` | PostgreSQL (customers, accounts, ledger, audit, saga_steps) |
+| Cache | Conteneur `canbankx_redis_lb` | Redis (verrous saga) |
+| Gateway | Conteneur `canbankx_gateway` | KrakenD (point d’entrée) |
+| Load balancer | Conteneur `canbankx_nginx` | NGINX (routage) |
+| Base transfer | Conteneur `canbankx_db_transfer` | PostgreSQL (transfers) |
+| Réseau applicatif | `canbankx-net` | Réseau Docker interne |
 
 ## 7.4 Diagramme de déploiement
 
 <p style="text-align: center;">
-  <img src="./Images/7_DiagrammeDeploiement.png" alt="Figure 12" width="600">
-  <br>
-  <em>Figure 12. Diagramme Deploiement</em>
+  <em>Figure 12. Diagramme Déploiement — Monolith et Microservices (style Test1)</em>
 </p>
+
+```mermaid
+flowchart TB
+    subgraph User["<<Device>> User"]
+        Frontend["Frontend (Nginx:80)"]
+    end
+
+    subgraph Entry["API Gateway"]
+        Gateway["API Gateway (KrakenD:8080)"]
+    end
+
+    subgraph Stress["<<Container>> Stress test"]
+        k6["<<Service>> k6"]
+        locust["<<Service>> locust"]
+    end
+
+    subgraph Observability["<<Container>> Observability"]
+        Prometheus["Prometheus"]
+        Grafana["Grafana"]
+    end
+
+    Frontend -->|HTTPS| Gateway
+    k6 -->|HTTP| Gateway
+    locust -->|HTTP| Gateway
+    Grafana -->|PromQL / HTTP| Prometheus
+
+    subgraph Monolith["Option A : Monolith (docker-compose.monolith.yml)"]
+        NginxM["NGINX :8083"]
+        Mono["canbankx_monolith :8080"]
+        DB_Mono[("PostgreSQL :5432")]
+    end
+
+    subgraph Micro["Option B : Microservices (docker-compose.lb.yml)"]
+        NginxL["NGINX :8082"]
+        Acc["account-service :8080"]
+        Trans["transfer-service :8080"]
+        DB_Acc[("PostgreSQL account :5435")]
+        DB_Trans[("PostgreSQL transfer :5436")]
+        Redis["Redis :6379"]
+    end
+
+    Gateway --> NginxM
+    Gateway --> NginxL
+
+    NginxM --> Mono
+    Mono --> DB_Mono
+
+    NginxL -->|/api/v1/customers, /api/v1/accounts| Acc
+    NginxL -->|/api/v1/transfers| Trans
+    Trans -->|/internal/saga/*| Acc
+    Acc --> DB_Acc
+    Trans --> DB_Trans
+    Trans --> Redis
+
+    Prometheus -->|Scrape /actuator/prometheus| Mono
+    Prometheus -->|Scrape /actuator/prometheus| Acc
+    Prometheus -->|Scrape /actuator/prometheus| Trans
+```
 
 # 8. Concepts transverses (Cross-cutting Concepts)
 
 ## Contenu
 
-Cette section décrit les règles globales et les solutions transverses utilisées dans l’architecture du système **BrokerX Banking API**.
+Cette section décrit les règles globales et les solutions transverses utilisées dans l’architecture du système **CanBankX Banking API**.
 
 Ces concepts s’appliquent à plusieurs parties du système et permettent d’assurer la cohérence globale de l’architecture.
 
@@ -906,7 +1174,7 @@ Ces principes sont particulièrement importants dans un système bancaire où la
 
 # 8.1 Concepts de domaine
 
-Le modèle de domaine du système BrokerX suit les principes du **Domain-Driven Design (DDD)**.
+Le modèle de domaine du système CanBankX suit les principes du **Domain-Driven Design (DDD)**.
 
 Les principales entités métier sont :
 
@@ -924,7 +1192,7 @@ Le vocabulaire utilisé dans le code correspond au **langage métier** du systè
 
 # 8.2 Concepts UX
 
-Le système BrokerX est principalement exposé via une **API REST**.
+Le système CanBankX est principalement exposé via une **API REST**.
 
 Les interactions avec le système sont réalisées par des clients HTTP tels que :
 
@@ -951,7 +1219,7 @@ Les endpoints principaux couvrent les cas d’utilisation suivants :
 
 # 8.3 Concepts de sécurité
 
-La sécurité constitue un élément central de l’architecture du système BrokerX.
+La sécurité constitue un élément central de l’architecture du système CanBankX.
 
 Les mécanismes suivants sont utilisés :
 
@@ -1057,18 +1325,19 @@ Ces logs facilitent le diagnostic et l’analyse des incidents.
 
 Le système est conteneurisé avec **Docker**.
 
-L’architecture d’exécution comprend :
+**Mode Monolith** :
+- un conteneur **canbankx_monolith** (toute la logique)
+- une base **PostgreSQL** partagée
+- `docker compose -f docker-compose.monolith.yml up`
 
-- un conteneur **brokerx_app** contenant l’application Spring Boot
-- un conteneur **brokerx_db** contenant la base de données **PostgreSQL**
+**Mode Microservices** :
+- un conteneur **canbankx_gateway** (KrakenD) et **canbankx_nginx** (NGINX) pour l’entrée et le routage
+- un conteneur **canbankx_account_service** (comptes/KYC/ledger)
+- un conteneur **canbankx_transfer_service** (virements et saga UC-05)
+- **canbankx_db_account**, **canbankx_db_transfer** (PostgreSQL) et **canbankx_redis_lb** (Redis)
+- `docker compose -f docker-compose.lb.yml up`
 
-Les conteneurs communiquent via un réseau Docker interne nommé :
-
-**brokerx-net**
-
-Le système peut être déployé via la commande suivante :
-
-docker-compose up
+Les conteneurs communiquent via le réseau Docker interne **canbankx-net**.
 
 
 Cela garantit :
@@ -1079,7 +1348,7 @@ Cela garantit :
 
 # 9. Limites actuelles et évolutions prévues
 
-La phase 1 du projet BrokerX met en place une architecture complète permettant d’implémenter les principaux cas d’utilisation du système bancaire tout en intégrant plusieurs mécanismes d’optimisation et d’observabilité.
+La phase 1 du projet CanBankX met en place une architecture complète permettant d’implémenter les principaux cas d’utilisation du système bancaire tout en intégrant plusieurs mécanismes d’optimisation et d’observabilité.
 
 L’architecture actuelle inclut notamment :
 
@@ -1149,7 +1418,7 @@ Une amélioration future consisterait à démontrer plus explicitement la **tol�
 
 ## Conclusion
 
-L’architecture actuelle constitue une base solide pour l’évolution du système BrokerX.
+L’architecture actuelle constitue une base solide pour l’évolution du système CanBankX.
 
 Les améliorations futures permettront de renforcer :
 

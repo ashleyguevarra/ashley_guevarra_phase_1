@@ -48,4 +48,8 @@ public class Transfer {
     public String getStatus() { return status; }
     public String getIdempotencyKey() { return idempotencyKey; }
     public Instant getCreatedAt() { return createdAt; }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
 }

@@ -1,7 +1,7 @@
 services:
   prometheus:
     image: prom/prometheus:latest
-    container_name: brokerx_prometheus
+    container_name: canbankx_prometheus
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
     ports:
@@ -9,7 +9,7 @@ services:
 
   grafana:
     image: grafana/grafana:latest
-    container_name: brokerx_grafana
+    container_name: canbankx_grafana
     ports:
       - "3001:3000"
     environment:

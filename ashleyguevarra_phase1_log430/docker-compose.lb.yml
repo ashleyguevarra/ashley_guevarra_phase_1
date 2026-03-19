@@ -1,57 +1,84 @@
 services:
-  app1:
+  account-service:
     build: .
-    container_name: brokerx_app1
+    container_name: canbankx_account_service
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/brokerx
-      SPRING_DATASOURCE_USERNAME: brokerx
-      SPRING_DATASOURCE_PASSWORD: brokerx
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db-account:5432/canbankx_account
+      SPRING_DATASOURCE_USERNAME: canbankx
+      SPRING_DATASOURCE_PASSWORD: canbankx
+      SPRING_FLYWAY_LOCATIONS: classpath:db/migration/account
       SERVER_PORT: 8080
+      SPRING_PROFILES_ACTIVE: account
     depends_on:
-      db:
+      db-account:
         condition: service_healthy
 
-  app2:
+  transfer-service:
     build: .
-    container_name: brokerx_app2
+    container_name: canbankx_transfer_service
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/brokerx
-      SPRING_DATASOURCE_USERNAME: brokerx
-      SPRING_DATASOURCE_PASSWORD: brokerx
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db-transfer:5432/canbankx_transfer
+      SPRING_DATASOURCE_USERNAME: canbankx
+      SPRING_DATASOURCE_PASSWORD: canbankx
+      SPRING_FLYWAY_LOCATIONS: classpath:db/migration/transfer
       SERVER_PORT: 8080
+      SPRING_PROFILES_ACTIVE: transfer
+      CANBANKX_ACCOUNT_SERVICE_BASE_URL: http://account-service:8080
     depends_on:
-      db:
+      db-transfer:
         condition: service_healthy
 
-  db:
+  db-account:
     image: postgres:16
-    container_name: brokerx_db_lb
+    container_name: canbankx_db_account
     environment:
-      POSTGRES_DB: brokerx
-      POSTGRES_USER: brokerx
-      POSTGRES_PASSWORD: brokerx
+      POSTGRES_DB: canbankx_account
+      POSTGRES_USER: canbankx
+      POSTGRES_PASSWORD: canbankx
     ports:
-      - "5433:5432"
+      - "5435:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U brokerx -d brokerx"]
+      test: ["CMD-SHELL", "pg_isready -U canbankx -d canbankx_account"]
       interval: 5s
       timeout: 3s
       retries: 20
 
+  db-transfer:
+    image: postgres:16
+    container_name: canbankx_db_transfer
+    environment:
+      POSTGRES_DB: canbankx_transfer
+      POSTGRES_USER: canbankx
+      POSTGRES_PASSWORD: canbankx
+    ports:
+      - "5436:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U canbankx -d canbankx_transfer"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    container_name: canbankx_redis_lb
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
   nginx:
     image: nginx:latest
-    container_name: brokerx_nginx
+    container_name: canbankx_nginx
     ports:
       - "8082:80"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
-      - app1
-      - app2
+      - account-service
+      - transfer-service
 
   gateway:
     image: devopsfaith/krakend:2.7
-    container_name: brokerx_gateway
+    container_name: canbankx_gateway
     depends_on:
       - nginx
     ports:

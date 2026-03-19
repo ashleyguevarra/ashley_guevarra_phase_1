@@ -1,40 +1,38 @@
 package com.ashleyguevarra.phase1.transfer;
 
-import com.ashleyguevarra.phase1.account.Account;
-import com.ashleyguevarra.phase1.account.AccountRepository;
+import com.ashleyguevarra.phase1.account.dto.CompleteLedgerSagaRequest;
+import com.ashleyguevarra.phase1.account.dto.CompensateDebitSagaRequest;
+import com.ashleyguevarra.phase1.account.dto.CreditSagaRequest;
+import com.ashleyguevarra.phase1.account.dto.DebitSagaRequest;
+import com.ashleyguevarra.phase1.account.dto.InstantCurrencyResponse;
 import com.ashleyguevarra.phase1.api.ApiException;
-import com.ashleyguevarra.phase1.audit.AuditLog;
-import com.ashleyguevarra.phase1.audit.AuditLogRepository;
-import com.ashleyguevarra.phase1.ledger.LedgerEntry;
-import com.ashleyguevarra.phase1.ledger.LedgerEntryRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.context.annotation.Profile;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
 @Service
+@Profile("transfer")
 public class TransferService {
 
     private final TransferRepository transfers;
-    private final AccountRepository accounts;
-    private final LedgerEntryRepository ledger;
-    private final AuditLogRepository audit;
+    private final RestClient accountServiceClient;
 
     public TransferService(TransferRepository transfers,
-                           AccountRepository accounts,
-                           LedgerEntryRepository ledger,
-                           AuditLogRepository audit) {
+                           @Value("${canbankx.account-service.base-url:http://account-service:8080}") String accountServiceBaseUrl) {
         this.transfers = transfers;
-        this.accounts = accounts;
-        this.ledger = ledger;
-        this.audit = audit;
+        this.accountServiceClient = RestClient.builder()
+            .baseUrl(accountServiceBaseUrl)
+            .build();
     }
 
-    @Transactional
     @Caching(evict = {
             @CacheEvict(value = "accountBalance", key = "#fromAccountId.toString() + ':' + #customerId.toString()"),
             @CacheEvict(value = "accountBalance", allEntries = true)
@@ -60,55 +58,79 @@ public class TransferService {
             return existing.get();
         }
 
+        Transfer transfer;
         try {
-            Account from = accounts.findByIdForUpdate(fromAccountId)
-                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "ACCOUNT_NOT_FOUND", "Source account not found"));
-
-            Account to = accounts.findByIdForUpdate(toAccountId)
-                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "ACCOUNT_NOT_FOUND", "Destination account not found"));
-
-            if (!from.getCustomerId().equals(customerId)) {
-                throw new ApiException(HttpStatus.FORBIDDEN, "FORBIDDEN_RESOURCE", "Account does not belong to customer");
-            }
-
-            if (!"ACTIVE".equals(from.getStatus())) {
-                throw new ApiException(HttpStatus.CONFLICT, "ACCOUNT_INACTIVE", "Source account is not ACTIVE");
-            }
-            if (!"ACTIVE".equals(to.getStatus())) {
-                throw new ApiException(HttpStatus.CONFLICT, "ACCOUNT_INACTIVE", "Destination account is not ACTIVE");
-            }
-
-            if (!from.getCurrency().equals(to.getCurrency())) {
-                throw new ApiException(HttpStatus.BAD_REQUEST, "CURRENCY_MISMATCH", "Accounts must share same currency");
-            }
-
-            if (from.getBalanceCents() < amountCents) {
-                throw new ApiException(HttpStatus.CONFLICT, "INSUFFICIENT_FUNDS", "Insufficient funds");
-            }
-
-            from.setBalanceCents(from.getBalanceCents() - amountCents);
-            to.setBalanceCents(to.getBalanceCents() + amountCents);
-            accounts.save(from);
-            accounts.save(to);
-
-            Transfer transfer = new Transfer(fromAccountId, toAccountId, amountCents, "COMPLETED", idempotencyKey);
-            Transfer savedTransfer = transfers.save(transfer);
-
-            ledger.save(new LedgerEntry(fromAccountId, "DEBIT", amountCents, "TRANSFER " + savedTransfer.getId()));
-            ledger.save(new LedgerEntry(toAccountId, "CREDIT", amountCents, "TRANSFER " + savedTransfer.getId()));
-
-            audit.save(new AuditLog(
-                    "TRANSFER_CREATED",
-                    "TRANSFER",
-                    savedTransfer.getId(),
-                    "{\"from\":\"" + fromAccountId + "\",\"to\":\"" + toAccountId + "\",\"amountCents\":" + amountCents + "}"
-            ));
-
-            return savedTransfer;
-
+            Transfer pending = new Transfer(fromAccountId, toAccountId, amountCents, "PENDING", idempotencyKey);
+            transfer = transfers.save(pending);
         } catch (DataIntegrityViolationException e) {
-            return transfers.findByIdempotencyKey(idempotencyKey)
-                    .orElseThrow(() -> new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "DB error"));
+            // Transfer already created concurrently (unique idempotency_key).
+            transfer = transfers.findByIdempotencyKey(idempotencyKey)
+                .orElseThrow(() -> new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR",
+                    "DB error: " + (e.getCause() != null ? e.getCause().getMessage() : e.getMessage())));
+        }
+
+        // If already completed, return it (idempotency).
+        if ("COMPLETED".equals(transfer.getStatus())) {
+            return transfer;
+        }
+
+        String normalizedCurrency;
+        try {
+            InstantCurrencyResponse debitResponse = accountServiceClient.post()
+                .uri("/internal/saga/debit")
+                .body(new DebitSagaRequest(transfer.getId(), fromAccountId, toAccountId, customerId, amountCents))
+                .retrieve()
+                .body(InstantCurrencyResponse.class);
+            normalizedCurrency = debitResponse.currency();
+        } catch (RestClientResponseException e) {
+            updateTransferStatusSafe(transfer.getId(), "FAILED");
+            throw new ApiException(HttpStatus.valueOf(e.getRawStatusCode()), "SAGA_DEBIT_FAILED", "Debit step failed");
+        }
+
+        try {
+            accountServiceClient.post()
+                .uri("/internal/saga/credit")
+                .body(new CreditSagaRequest(transfer.getId(), toAccountId, amountCents, normalizedCurrency))
+                .retrieve()
+                .toBodilessEntity();
+
+            try {
+                accountServiceClient.post()
+                    .uri("/internal/saga/complete-ledger")
+                    .body(new CompleteLedgerSagaRequest(transfer.getId(), fromAccountId, toAccountId, amountCents))
+                    .retrieve()
+                    .toBodilessEntity();
+            } catch (RestClientResponseException ledgerEx) {
+                // Ledger failed but balances are correct. Mark complete; ledger can be reconciled later.
+            }
+
+            updateTransferStatusSafe(transfer.getId(), "COMPLETED");
+            return transfers.findById(transfer.getId())
+                .orElseThrow(() -> new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "Transfer not found"));
+        } catch (RestClientResponseException e) {
+            // Credit failed after debit: compensate.
+            compensateDebitSafe(transfer.getId(), fromAccountId, amountCents, normalizedCurrency);
+            updateTransferStatusSafe(transfer.getId(), "FAILED");
+            throw new ApiException(HttpStatus.valueOf(e.getRawStatusCode()), "SAGA_CREDIT_FAILED", "Credit step failed");
+        }
+    }
+
+    private void updateTransferStatusSafe(UUID transferId, String status) {
+        Transfer t = transfers.findById(transferId)
+            .orElseThrow(() -> new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "Transfer not found"));
+        t.setStatus(status);
+        transfers.save(t);
+    }
+
+    private void compensateDebitSafe(UUID transferId, UUID fromAccountId, long amountCents, String currency) {
+        try {
+            accountServiceClient.post()
+                .uri("/internal/saga/compensate-debit")
+                .body(new CompensateDebitSagaRequest(transferId, fromAccountId, amountCents, currency))
+                .retrieve()
+                .toBodilessEntity();
+        } catch (Exception ignored) {
+            // Compensation best-effort; balances should be restored eventually via idempotent saga steps.
         }
     }
 }

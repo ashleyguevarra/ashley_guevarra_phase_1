@@ -1,0 +1,2 @@
+# Used when SPRING_PROFILES_ACTIVE=transfer (microservices mode).
+# Set SPRING_FLYWAY_LOCATIONS=classpath:db/migration/transfer in docker-compose.

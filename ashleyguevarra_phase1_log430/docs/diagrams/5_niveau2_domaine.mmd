@@ -1,0 +1,13 @@
+flowchart TB
+    subgraph Domaine["Couche Domaine — Identique en Monolith et Microservices"]
+        Customer[Customer]
+        Account[Account]
+        Transfer[Transfer]
+        Ledger[LedgerEntry]
+        Audit[AuditLog]
+    end
+
+    Customer --> Account
+    Account --> Ledger
+    Transfer --> Ledger
+    Transfer --> Audit

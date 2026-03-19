@@ -1,0 +1,55 @@
+flowchart TB
+    subgraph User["<<Device>> User"]
+        Frontend["Frontend (Nginx:80)"]
+    end
+
+    subgraph Entry["API Gateway"]
+        Gateway["API Gateway (KrakenD:8080)"]
+    end
+
+    subgraph Stress["<<Container>> Stress test"]
+        k6["<<Service>> k6"]
+        locust["<<Service>> locust"]
+    end
+
+    subgraph Observability["<<Container>> Observability"]
+        Prometheus["Prometheus"]
+        Grafana["Grafana"]
+    end
+
+    Frontend -->|HTTPS| Gateway
+    k6 -->|HTTP| Gateway
+    locust -->|HTTP| Gateway
+    Grafana -->|PromQL / HTTP| Prometheus
+
+    subgraph Monolith["Option A : Monolith (docker-compose.monolith.yml)"]
+        NginxM["NGINX :8083"]
+        Mono["canbankx_monolith :8080"]
+        DB_Mono[("PostgreSQL :5432")]
+    end
+
+    subgraph Micro["Option B : Microservices (docker-compose.lb.yml)"]
+        NginxL["NGINX :8082"]
+        Acc["account-service :8080"]
+        Trans["transfer-service :8080"]
+        DB_Acc[("PostgreSQL account :5435")]
+        DB_Trans[("PostgreSQL transfer :5436")]
+        Redis["Redis :6379"]
+    end
+
+    Gateway --> NginxM
+    Gateway --> NginxL
+
+    NginxM --> Mono
+    Mono --> DB_Mono
+
+    NginxL -->|/api/v1/customers, /api/v1/accounts| Acc
+    NginxL -->|/api/v1/transfers| Trans
+    Trans -->|/internal/saga/*| Acc
+    Acc --> DB_Acc
+    Trans --> DB_Trans
+    Trans --> Redis
+
+    Prometheus -->|Scrape /actuator/prometheus| Mono
+    Prometheus -->|Scrape /actuator/prometheus| Acc
+    Prometheus -->|Scrape /actuator/prometheus| Trans

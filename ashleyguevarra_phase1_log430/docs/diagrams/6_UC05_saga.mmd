@@ -1,0 +1,32 @@
+sequenceDiagram
+    participant Client
+    participant Gateway as KrakenD
+    participant Nginx
+    participant Transfer as transfer-service
+    participant Account as account-service
+    participant DB
+    
+    Client->>Gateway: POST /api/v1/transfers + Idempotency-Key
+    Gateway->>Nginx: forward
+    Nginx->>Transfer: POST /api/v1/transfers
+    
+    Transfer->>DB: Créer Transfer (PENDING)
+    Transfer->>Account: POST /internal/saga/debit
+    Account->>DB: Verrouiller comptes, débiter source
+    Account-->>Transfer: OK + currency
+    
+    Transfer->>Account: POST /internal/saga/credit
+    Account->>DB: Créditer destination
+    Account-->>Transfer: OK
+    
+    Transfer->>Account: POST /internal/saga/complete-ledger
+    Account->>DB: Ledger DEBIT + CREDIT, Audit TRANSFER_COMPLETED
+    Account-->>Transfer: OK
+    
+    Transfer->>DB: Transfer status = COMPLETED
+    
+    Transfer-->>Client: 200 + Transfer
+    
+    Note over Transfer,Account: En cas d'échec au credit:
+    Transfer->>Account: POST /internal/saga/compensate-debit
+    Account->>DB: Restaurer solde source

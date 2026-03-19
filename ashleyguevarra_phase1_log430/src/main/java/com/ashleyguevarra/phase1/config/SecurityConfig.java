@@ -21,7 +21,6 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .cors(Customizer.withDefaults())
             .authorizeHttpRequests(auth -> auth
-                // public endpoints
                 .requestMatchers(
                     "/healthz",
                     "/error",
@@ -31,15 +30,11 @@ public class SecurityConfig {
                     "/v3/api-docs",
                     "/v3/api-docs/**"
                 ).permitAll()
-
-                // allow preflight requests
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-
-                // protected endpoints
-                .requestMatchers("/customers", "/customers/**").authenticated()
-                .requestMatchers("/accounts", "/accounts/**").authenticated()
-                .requestMatchers("/transfers", "/transfers/**").authenticated()
-
+                .requestMatchers("/internal/**").permitAll()
+                .requestMatchers("/api/v1/customers", "/api/v1/customers/**").authenticated()
+                .requestMatchers("/api/v1/accounts", "/api/v1/accounts/**").authenticated()
+                .requestMatchers("/api/v1/transfers", "/api/v1/transfers/**").authenticated()
                 .anyRequest().authenticated()
             )
             .httpBasic(Customizer.withDefaults());
@@ -50,23 +45,22 @@ public class SecurityConfig {
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-
         config.setAllowedOrigins(List.of(
             "http://localhost:3000",
             "http://127.0.0.1:3000",
-            "http://localhost:8081"
+            "http://localhost:8081",
+            "http://localhost:8082",
+            "http://localhost:8090",
+            "http://localhost:8091"
         ));
-
         config.setAllowedMethods(List.of(
             "GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"
         ));
-
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
-
         return source;
     }
 }

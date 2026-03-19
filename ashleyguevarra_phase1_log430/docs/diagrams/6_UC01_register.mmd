@@ -1,0 +1,16 @@
+sequenceDiagram
+    participant Client
+    participant KycController
+    participant RegisterCustomerService
+    participant CustomerRepository
+    participant DB as PostgreSQL
+
+    Client->>KycController: POST /api/v1/customers
+    KycController->>RegisterCustomerService: register(fullName, email)
+    RegisterCustomerService->>RegisterCustomerService: Valider données
+    RegisterCustomerService->>RegisterCustomerService: Créer Customer
+    RegisterCustomerService->>CustomerRepository: save(customer)
+    CustomerRepository->>DB: INSERT customer
+    CustomerRepository-->>RegisterCustomerService: Customer
+    RegisterCustomerService-->>KycController: Customer
+    KycController-->>Client: 200 + RegisterCustomerResponse
