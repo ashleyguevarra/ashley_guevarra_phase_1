@@ -1,0 +1,39 @@
+%% Vue lisible : réplicas a/b regroupés par service (détail dans arc42 §7).
+flowchart TB
+    subgraph Clients["Clients et tests de charge"]
+        direction LR
+        FE["Frontend (Nginx:80)"]
+        K6[k6]
+    end
+
+    GW["KrakenD :8080 — API Gateway"]
+
+    FE -->|HTTPS| GW
+    K6 -->|HTTP| GW
+
+    subgraph Monopath["Mode monolithe"]
+        MO[canbankx_monolith] --> DBM[(PostgreSQL)]
+    end
+
+    GW -->|api/v1/*| MO
+
+    subgraph Micropath["Mode microservices — docker-compose.lb.yml"]
+        direction TB
+        NGX["NGINX — load balancer :80"]
+        ACC["account-service — 2 réplicas a, b\nPostgreSQL account"]
+        TRF["transfer-service — 2 réplicas a, b\nPostgreSQL transfer + Redis"]
+        NGX -->|least_conn| ACC
+        NGX -->|least_conn| TRF
+        TRF -->|saga → account-a| ACC
+    end
+
+    GW -->|KrakenD → NGINX| NGX
+
+    subgraph Obs["Observabilité"]
+        direction TB
+        GRAF[Grafana] --> PROM[Prometheus]
+    end
+
+    PROM -.->|/actuator/prometheus| MO
+    PROM -.->|/actuator/prometheus| ACC
+    PROM -.->|/actuator/prometheus| TRF

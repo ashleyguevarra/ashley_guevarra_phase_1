@@ -1,0 +1,10 @@
+# Pour stack monolithe (docker-compose.monolith.yml) : remplacer prometheus.yml par ce fichier
+# ou copier vers prometheus.yml avant de lancer Prometheus sur le même réseau Docker.
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: 'canbankx-monolith'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['monolith:8080']

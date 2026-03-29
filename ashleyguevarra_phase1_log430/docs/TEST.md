@@ -1,5 +1,9 @@
 # Tests – Ledger, k6, Comparatif Monolithe
 
+**Stack microservices** : deux réplicas **account** et **transfer** derrière NGINX (`docker-compose.lb.yml`). Toujours **`-p canbankx_lb`** pour ne pas fusionner avec le compose monolithe. Observabilité : `docker compose -p canbankx_lb -f docker-compose.lb.yml --profile monitoring up -d` (Prometheus + Grafana, dashboard *4 Golden Signals*).
+
+**Gateway vs NGINX direct** : `./scripts/run-k6-gateway-vs-direct.sh CID_A AID_SRC AID_DST` puis remplir `docs/RAPPORT_COMPARATIFS.md`.
+
 ## 1. Ledger – GET /api/v1/accounts/{id}/ledger
 
 Après un transfert, les écritures apparaissent sur les comptes source (DEBIT) et destination (CREDIT).
@@ -28,7 +32,7 @@ export CID_A=<valeur> AID_SRC=<valeur> AID_DST=<valeur>
 BASE_URL=http://localhost:8082 ./scripts/run-k6.sh $CID_A $AID_SRC $AID_DST
 
 # Ou en une ligne :
-./scripts/run-k6.sh <CID_A> <AID_SRC> <AID_DST)
+./scripts/run-k6.sh <CID_A> <AID_SRC> <AID_DST>
 ```
 
 **Note** : k6 utilise `BASE_URL` (défaut `http://host.docker.internal:8082`). Si k6 tourne sur le host, utiliser `http://localhost:8082` ou `http://localhost:8090`.
@@ -38,7 +42,7 @@ BASE_URL=http://localhost:8082 ./scripts/run-k6.sh $CID_A $AID_SRC $AID_DST
 Lancer le monolithe (account + transfer dans un seul conteneur) :
 
 ```bash
-docker compose -f docker-compose.monolith.yml up -d --build
+docker compose -p canbankx_mono -f docker-compose.monolith.yml up -d --build
 ```
 
 - **Gateway monolithe** : http://localhost:8091  
@@ -47,7 +51,10 @@ docker compose -f docker-compose.monolith.yml up -d --build
 Seed puis k6 :
 
 ```bash
-# Seed (depuis nginx monolithe)
+# Seed depuis l’hôte (KrakenD :8091) — recommandé si la route /internal/seed/fund est exposée sur la gateway
+SEED_GATEWAY_URL=http://localhost:8091 bash scripts/seed-and-test.sh
+
+# Alternative : dans le conteneur nginx monolithe (réseau Docker)
 docker cp scripts/seed-and-test.sh canbankx_nginx_monolith:/tmp/
 docker exec -e MONOLITH=1 canbankx_nginx_monolith bash /tmp/seed-and-test.sh
 

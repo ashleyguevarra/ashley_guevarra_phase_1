@@ -1,0 +1,147 @@
+{
+    "metrics": {
+        "iteration_duration": {
+            "avg": 1527.3032216439767,
+            "min": 1080.096836,
+            "med": 1267.14361,
+            "max": 8529.154936,
+            "p(90)": 2276.7481775,
+            "p(95)": 2763.074305249998
+        },
+        "http_req_duration": {
+            "med": 266.4785,
+            "max": 7528.251,
+            "p(90)": 1276.2601,
+            "p(95)": 1762.669099999998,
+            "avg": 526.5602997382198,
+            "min": 79.619,
+            "thresholds": {
+                "p(95)<2000": false
+            }
+        },
+        "http_req_waiting": {
+            "med": 264.92650000000003,
+            "max": 7525.378,
+            "p(90)": 1257.2764999999997,
+            "p(95)": 1749.4313999999997,
+            "avg": 521.9993985602101,
+            "min": 78.692
+        },
+        "http_req_failed": {
+            "passes": 0,
+            "fails": 1528,
+            "thresholds": {
+                "rate<0.05": false
+            },
+            "value": 0
+        },
+        "http_reqs": {
+            "count": 1528,
+            "rate": 13.778638986799685
+        },
+        "vus_max": {
+            "value": 50,
+            "min": 50,
+            "max": 50
+        },
+        "http_req_duration{expected_response:true}": {
+            "p(90)": 1276.2601,
+            "p(95)": 1762.669099999998,
+            "avg": 526.5602997382198,
+            "min": 79.619,
+            "med": 266.4785,
+            "max": 7528.251
+        },
+        "http_req_receiving": {
+            "p(95)": 17.002849999999953,
+            "avg": 4.532117801047122,
+            "min": 0.023,
+            "med": 1.079,
+            "max": 356.773,
+            "p(90)": 8.742599999999998
+        },
+        "http_req_blocked": {
+            "p(90)": 0.009,
+            "p(95)": 0.022,
+            "avg": 0.0513586387434559,
+            "min": 0.003,
+            "med": 0.007,
+            "max": 44.412
+        },
+        "iterations": {
+            "count": 1528,
+            "rate": 13.778638986799685
+        },
+        "checks": {
+            "passes": 1528,
+            "fails": 0,
+            "value": 1
+        },
+        "http_req_sending": {
+            "avg": 0.0287833769633509,
+            "min": 0.009,
+            "med": 0.025,
+            "max": 0.243,
+            "p(90)": 0.039,
+            "p(95)": 0.06
+        },
+        "data_sent": {
+            "rate": 3298.6765094242014,
+            "count": 365811
+        },
+        "http_req_connecting": {
+            "avg": 0.012720549738219896,
+            "min": 0,
+            "med": 0,
+            "max": 1.008,
+            "p(90)": 0,
+            "p(95)": 0
+        },
+        "vus": {
+            "max": 50,
+            "value": 3,
+            "min": 1
+        },
+        "http_req_tls_handshaking": {
+            "min": 0,
+            "med": 0,
+            "max": 0,
+            "p(90)": 0,
+            "p(95)": 0,
+            "avg": 0
+        },
+        "data_received": {
+            "count": 1308750,
+            "rate": 11801.566606003984
+        }
+    },
+    "root_group": {
+        "name": "",
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {},
+        "checks": {
+                "balance status is 200": {
+                    "name": "balance status is 200",
+                    "path": "::balance status is 200",
+                    "id": "fa1bb1970c8d5bac89c5b3280a658347",
+                    "passes": 1114,
+                    "fails": 0
+                },
+                "ledger status is 200": {
+                    "passes": 285,
+                    "fails": 0,
+                    "name": "ledger status is 200",
+                    "path": "::ledger status is 200",
+                    "id": "6f80346e9b3ad3d1d79366b8490a8327"
+                },
+                "transfer status is 200": {
+                    "path": "::transfer status is 200",
+                    "id": "37dabcffdcc0f0c755a852065e197564",
+                    "passes": 129,
+                    "fails": 0,
+                    "name": "transfer status is 200"
+                }
+            }
+    }
+}

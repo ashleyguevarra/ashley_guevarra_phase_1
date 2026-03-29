@@ -1,32 +1,53 @@
-services:
-  account-service:
-    build: .
-    container_name: canbankx_account_service
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://db-account:5432/canbankx_account
-      SPRING_DATASOURCE_USERNAME: canbankx
-      SPRING_DATASOURCE_PASSWORD: canbankx
-      SPRING_FLYWAY_LOCATIONS: classpath:db/migration/account
-      SERVER_PORT: 8080
-      SPRING_PROFILES_ACTIVE: account
-    depends_on:
-      db-account:
-        condition: service_healthy
+# Microservices + NGINX (2× account + 2× transfer) + KrakenD + Redis + DBs.
+# Client: KrakenD:8090 → NGINX:8082 → réplicas (least_conn).
+# Saga transfer→account: http://account-service-a:8080 (fixe ; même DB pour a et b).
+# Tolérance aux pannes: docker stop canbankx_account_b puis relancer k6 — le trafic client continue sur a.
 
-  transfer-service:
-    build: .
-    container_name: canbankx_transfer_service
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://db-transfer:5432/canbankx_transfer
-      SPRING_DATASOURCE_USERNAME: canbankx
-      SPRING_DATASOURCE_PASSWORD: canbankx
-      SPRING_FLYWAY_LOCATIONS: classpath:db/migration/transfer
-      SERVER_PORT: 8080
-      SPRING_PROFILES_ACTIVE: transfer
-      CANBANKX_ACCOUNT_SERVICE_BASE_URL: http://account-service:8080
-    depends_on:
-      db-transfer:
-        condition: service_healthy
+x-account: &account
+  build: .
+  environment:
+    SPRING_DATASOURCE_URL: jdbc:postgresql://db-account:5432/canbankx_account
+    SPRING_DATASOURCE_USERNAME: canbankx
+    SPRING_DATASOURCE_PASSWORD: canbankx
+    SPRING_FLYWAY_LOCATIONS: classpath:db/migration/account
+    SERVER_PORT: 8080
+    SPRING_PROFILES_ACTIVE: account
+  depends_on:
+    db-account:
+      condition: service_healthy
+
+x-transfer: &transfer
+  build: .
+  environment:
+    SPRING_DATASOURCE_URL: jdbc:postgresql://db-transfer:5432/canbankx_transfer
+    SPRING_DATASOURCE_USERNAME: canbankx
+    SPRING_DATASOURCE_PASSWORD: canbankx
+    SPRING_FLYWAY_LOCATIONS: classpath:db/migration/transfer
+    SERVER_PORT: 8080
+    SPRING_PROFILES_ACTIVE: transfer
+    CANBANKX_ACCOUNT_SERVICE_BASE_URL: http://account-service-a:8080
+  depends_on:
+    db-transfer:
+      condition: service_healthy
+    account-service-a:
+      condition: service_started
+
+services:
+  account-service-a:
+    <<: *account
+    container_name: canbankx_account_a
+
+  account-service-b:
+    <<: *account
+    container_name: canbankx_account_b
+
+  transfer-service-a:
+    <<: *transfer
+    container_name: canbankx_transfer_a
+
+  transfer-service-b:
+    <<: *transfer
+    container_name: canbankx_transfer_b
 
   db-account:
     image: postgres:16
@@ -62,7 +83,7 @@ services:
     image: redis:7-alpine
     container_name: canbankx_redis_lb
     ports:
-      - "6379:6379"
+      - "16379:6379"
     restart: unless-stopped
 
   nginx:
@@ -73,8 +94,10 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
-      - account-service
-      - transfer-service
+      - account-service-a
+      - account-service-b
+      - transfer-service-a
+      - transfer-service-b
 
   gateway:
     image: devopsfaith/krakend:2.7
@@ -86,3 +109,30 @@ services:
     volumes:
       - ./krakend/krakend.json:/etc/krakend/krakend.json:ro
     command: ["run", "-c", "/etc/krakend/krakend.json"]
+
+  prometheus:
+    profiles: ["monitoring"]
+    image: prom/prometheus:latest
+    container_name: canbankx_prometheus_lb
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "19090:9090"
+    depends_on:
+      - account-service-a
+      - transfer-service-a
+
+  grafana:
+    profiles: ["monitoring"]
+    image: grafana/grafana:latest
+    container_name: canbankx_grafana_lb
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus

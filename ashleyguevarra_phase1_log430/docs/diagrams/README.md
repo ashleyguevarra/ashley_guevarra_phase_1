@@ -20,3 +20,16 @@ mmdc -i 7_deploiement_monolith_et_microservices.mmd -o ../Images/7_DiagrammeDepl
 ```
 
 Ou utiliser [mermaid.live](https://mermaid.live) pour éditer et exporter manuellement.
+
+## Diagrammes arc42 (`arc42.md`)
+
+Les sources Mermaid sont dans `diagrams/arc42_mermaid_archive.md` (copie de secours) et les fichiers **`.mmd` prêts pour `mmdc`** dans `diagrams/arc42-gen/` (alignés sur l’infra à **2 réplicas**). Le document `arc42.md` référence les PNG dans `docs/Images/fig*.png`.
+
+Régénérer les figures arc42 :
+
+```bash
+cd docs/diagrams/arc42-gen
+for f in *.mmd; do npx @mermaid-js/mermaid-cli -i "$f" -o "../../Images/${f%.mmd}.png" -w 2800; done
+```
+
+**Prometheus** : `monitoring/prometheus.yml` cible les quatre JVM (`account-service-a/b`, `transfer-service-a/b`). Pour le monolithe seul, voir `monitoring/prometheus.monolith.yml`.

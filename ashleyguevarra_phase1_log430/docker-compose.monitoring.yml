@@ -1,9 +1,13 @@
+# Préférer, pour le stack microservices : docker compose -f docker-compose.lb.yml --profile monitoring up -d
+# (Prometheus scrape account-service-a/b et transfer-service-a/b sur le même réseau.)
+# Ce fichier reste utilisable seul pour des essais : monter prometheus.monolith.yml si besoin.
+
 services:
   prometheus:
     image: prom/prometheus:latest
     container_name: canbankx_prometheus
     volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     ports:
       - "9090:9090"
 
@@ -15,5 +19,8 @@ services:
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
     depends_on:
       - prometheus

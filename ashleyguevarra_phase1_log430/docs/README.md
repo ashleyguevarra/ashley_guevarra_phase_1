@@ -71,13 +71,16 @@ Le système implémente les cas d'utilisation suivants :
 
 # Démarrage du projet
 
-## 1. Lancer la base de données
+## 1. Lancer l’environnement Docker (recommandé)
 
-Le projet utilise PostgreSQL dans un conteneur Docker.
+Le scénario principal est décrit dans **`docs/RUNBOOK.md`** (stack micro avec **`-p canbankx_lb`**, monolithe avec **`-p canbankx_mono`**). Exemple micro + observabilité :
 
 ```
-docker compose up -d
+docker compose -p canbankx_lb -f docker-compose.lb.yml up -d
+docker compose -p canbankx_lb -f docker-compose.lb.yml --profile monitoring up -d
 ```
+
+*(Sans ces **`-p`**, ne pas mélanger `docker-compose.lb.yml` et `docker-compose.monolith.yml` dans le même dossier — risque de conflits de conteneurs.)*
 
 ---
 
@@ -197,11 +200,13 @@ Prometheus collecte ces métriques et Grafana permet de visualiser les **4 Golde
 - erreurs
 - saturation
 
-Grafana est accessible via :
+Grafana (profil **monitoring** du compose LB) est en général sur :
 
 ```
 http://localhost:3001
 ```
+
+Prometheus (même profil) : **http://localhost:19090** (port hôte mappé pour éviter les conflits avec un autre Prometheus local).
 
 ---
 
@@ -215,15 +220,9 @@ Le scénario simule :
 - consultation du ledger
 - virements entre comptes
 
-Résultats du test :
+Les chiffres **à jour** (micro NGINX / KrakenD, monolithe, captures Grafana) sont dans **`docs/RAPPORT_COMPARATIFS.md`** et les exports **`docs/metrics/k6-summary-*.json`**.
 
-- Requêtes totales : **1708**
-- Débit moyen : **15.43 requêtes/sec**
-- Taux d'erreur : **0 %**
-- Latence moyenne : **350 ms**
-- P95 : **972 ms**
-
-Ces résultats montrent que l'application reste stable sous charge.
+Ces campagnes montrent un taux d’erreur HTTP faible à nul sur les essais documentés ; le script k6 impose aussi un seuil **P95 &lt; 2 s** (voir rapport §6 si le seuil est dépassé malgré des réponses 200).
 
 ---
 
@@ -247,12 +246,9 @@ Cela permet :
 
 # Caching
 
-Une stratégie de cache peut être implémentée avec **Redis** pour les endpoints fréquemment consultés :
+Le service de consultation applique **Spring Cache** (`@Cacheable`) sur la lecture du **solde** ; les **virements** invalident le cache (`@CacheEvict`) pour éviter un solde obsolète après écriture. **Redis** est utilisé pour la coordination saga (verrous) en mode microservices.
 
-- `/accounts/{id}/balance`
-- `/accounts/{id}/ledger`
-
-Un TTL court (10–30 secondes) permet d'améliorer les performances tout en conservant une cohérence acceptable.
+Pour mesurer un gain avant/après, lancer k6 surtout sur `GET .../balance` avec le gabarit `docs/RAPPORT_COMPARATIFS.md` (section cache).
 
 ---
 
@@ -275,17 +271,18 @@ docs/
 postman/
 loadtests/
 monitoring/
+scripts/
 src/
 README.md
 ```
 
 Les documents d'architecture incluent :
 
-- Arc42
-- vue 4+1
-- ADR
-- modèle de domaine
-- diagramme ER
+- Arc42 (dont correspondance **4+1**, **risques** §2.5)
+- ADR (dans arc42)
+- **RUNBOOK** : `docs/RUNBOOK.md`
+- **Rapport comparatif (gabarit)** : `docs/RAPPORT_COMPARATIFS.md`
+- Dashboard Grafana versionné : `monitoring/grafana/dashboards/canbankx-golden-signals.json`
 
 ---
 

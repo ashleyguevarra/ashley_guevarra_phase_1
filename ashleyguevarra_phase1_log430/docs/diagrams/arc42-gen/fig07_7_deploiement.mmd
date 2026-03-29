@@ -1,0 +1,54 @@
+%% Déploiement simplifié : moins d'arêtes ; réplicas a,b décrits dans les libellés.
+flowchart TB
+    subgraph User["<<Device>> User"]
+        FE["Frontend (Nginx:80)"]
+    end
+
+    GW["API Gateway — KrakenD :8080"]
+
+    subgraph Stress["Stress test"]
+        direction LR
+        K6[k6]
+        LOC[locust]
+    end
+
+    subgraph Obs["Observabilité"]
+        direction TB
+        GF[Grafana] -->|PromQL| PR[Prometheus]
+    end
+
+    FE -->|HTTPS| GW
+    K6 -->|HTTP| GW
+    LOC -->|HTTP| GW
+
+    subgraph OptA["Option A — monolithe (docker-compose.monolith.yml)"]
+        direction TB
+        NM["NGINX :8083"]
+        MONO[canbankx_monolith :8080]
+        PGM[("PostgreSQL :5432")]
+        NM --> MONO
+        MONO --> PGM
+    end
+
+    subgraph OptB["Option B — microservices (docker-compose.lb.yml)"]
+        direction TB
+        NL["NGINX :8082 — load balancer"]
+        ACC["account-service — ×2 a,b :8080"]
+        TRF["transfer-service — ×2 a,b :8080"]
+        PGA[("PostgreSQL account :5435")]
+        PGT[("PostgreSQL transfer :5436")]
+        RDS["Redis :6379"]
+        NL -->|customers / accounts| ACC
+        NL -->|transfers| TRF
+        ACC --> PGA
+        TRF --> PGT
+        TRF --> RDS
+        TRF -->|/internal/saga/* → account-a| ACC
+    end
+
+    GW --> NM
+    GW --> NL
+
+    PR -.->|scrape| MONO
+    PR -.->|scrape| ACC
+    PR -.->|scrape| TRF

@@ -115,6 +115,18 @@ Le système doit respecter plusieurs objectifs de qualité afin d’assurer sa r
 | CanBankX (organisation fictive) | Commanditaire du système | Respect des contraintes bancaires et réglementaires |
 | Autorités réglementaires | Régulateurs financiers | Vérification KYC et auditabilité des transactions |
 
+## 1.5 Correspondance avec les vues **4+1** (Kruchten)
+
+Le document Arc42 et les artefacts du dépôt couvrent les cinq vues du modèle 4+1 comme suit :
+
+| Vue 4+1 | Où c’est traité dans ce livrable |
+|--------|----------------------------------|
+| **Logique** (fonctions métier, découpage domaine) | §3 (contexte), §5 (blocs de construction), §8.1 (domaine), modules `customer`, `account`, `transfer`, `ledger`, `audit` |
+| **Processus** (composants & connecteurs, interactions) | §5 (niveaux 1–2), §6 (vue dynamique / scénarios UC-01–UC-05), diagrammes Mermaid dans `docs/diagrams/` |
+| **Déploiement** | §7, `docker-compose.lb.yml`, `docker-compose.monolith.yml`, `nginx/`, `krakend/` |
+| **Développement** (structure logicielle, packages) | Organisation du code source Spring Boot par couche et par domaine ; `README.md` / `docs/README.md` |
+| **Scénarios (+1)** | §6 (enchaînements UC), tests de charge **k6** (`loadtests/canbankx.js`), scripts `scripts/` |
+
 # 2. Contraintes architecturales
 
 ## 2.1 Contraintes techniques
@@ -172,6 +184,17 @@ Bien que le système soit un prototype académique, certaines contraintes de qua
 
 Ces contraintes permettent de démontrer la robustesse et la fiabilité de l’architecture proposée.
 
+## 2.5 Risques architecturaux et mesures
+
+| Risque | Impact potentiel | Probabilité | Mesures / atténuation |
+|--------|------------------|-------------|------------------------|
+| **Indisponibilité d’une instance** microservice | Perte de capacité, erreurs 502 si une seule instance | Moyenne | Deux réplicas **account** et **transfer** derrière **NGINX** (`least_conn`) ; tests manuels `docker stop` d’un conteneur sous charge (voir runbook). |
+| **Latence réseau inter-services (saga)** | P95 plus élevé qu’en monolithe | Haute (connue) | Idempotence, saga compensable, comparaison mesurée monolithe vs microservices documentée. |
+| **Incohérence cache / données** | Solde ou ledger perçu comme « périmé » | Faible | Cache **Spring** sur consultation solde avec **invalidation** sur virement (`@CacheEvict`) ; TTL implicite via invalidation sur écriture. |
+| **Surcharge base de données** | Saturation, timeouts | Moyenne sous forte charge | Index et contraintes Flyway ; tests k6 pour observer le comportement ; observabilité Prometheus/Grafana. |
+| **Sécurité (auth faible, MVP)** | Accès non autorisé en environnement réel | — (hors scope prod) | **HTTP Basic** + CORS configurés pour la démo ; chemins `/internal/**` réservés au réseau Docker ; évolution JWT en phase ultérieure. |
+| **Dérive de configuration** (compose, secrets) | Environnements non reproductibles | Faible | Fichiers compose versionnés, variables documentées, pipeline CI Maven. |
+
 # 3. Portée et contexte système
 
 Le périmètre de la **Phase 1** est limité à un prototype permettant de démontrer les fonctionnalités
@@ -211,20 +234,7 @@ Acteurs externes :
   <em>Figure 1. Contexte métier</em>
 </p>
 
-```mermaid
-flowchart LR
-    Client([Client])
-    KYC([Service KYC simulé])
-    Ext([Système bancaire externe futur])
-    CanBankX[CanBankX Banking API]
-    
-    Client -->|Informations personnelles, demande compte, virement| CanBankX
-    CanBankX -->|Confirmation, infos compte, résultat virement| Client
-    KYC -->|Données personnelles| CanBankX
-    CanBankX -->|Résultat validation KYC| KYC
-    Ext -.->|Demande transaction futur| CanBankX
-    CanBankX -.->|Confirmation/rejet futur| Ext
-```
+![Figure 1 — Contexte métier](Images/fig01_3_1_contexte_metier.png)
 
 | Partenaire externe | Entrées vers CanBankX | Sorties de CanBankX |
 |-------------------|----------------------|-------------------|
@@ -251,56 +261,9 @@ Les interactions principales utilisent :
 - **PostgreSQL** pour la persistance des données
 - **Deux modes de déploiement** : **Monolith** (un conteneur) ou **Microservices** (account-service + transfer-service, database per service)
 
-```mermaid
-flowchart TB
-    subgraph User["<<Device>> User"]
-        Frontend["Frontend (Nginx:80)"]
-    end
+![Figure — Contexte technique (3.2)](Images/fig02_3_2_contexte_technique.png)
 
-    subgraph CanBankX["CanBankX - Monolith et Microservices"]
-        Gateway["API Gateway (KrakenD:8080)"]
-
-        subgraph Monolith["Mode Monolith"]
-            Mono["canbankx_monolith"]
-            DB_Mono[("PostgreSQL")]
-        end
-
-        subgraph Micro["Mode Microservices"]
-            Acc["account-service"]
-            Trans["transfer-service"]
-            DB_Acc[("PostgreSQL account")]
-            DB_Trans[("PostgreSQL transfer")]
-            Redis["Redis"]
-        end
-    end
-
-    subgraph Stress["Stress test"]
-        k6[k6]
-    end
-
-    subgraph Observability["Observability"]
-        Prometheus[Prometheus]
-        Grafana[Grafana]
-    end
-
-    Frontend -->|HTTPS| Gateway
-    k6 -->|HTTP| Gateway
-
-    Gateway -->|api/v1/*| Mono
-    Gateway -->|api/v1/*| Acc
-    Gateway -->|api/v1/*| Trans
-
-    Mono --> DB_Mono
-    Acc --> DB_Acc
-    Trans --> DB_Trans
-    Trans -->|saga| Acc
-    Trans --> Redis
-
-    Prometheus -->|Scrape| Mono
-    Prometheus -->|Scrape| Acc
-    Prometheus -->|Scrape| Trans
-    Grafana -->|PromQL| Prometheus
-```
+*Lecture du schéma :* pour éviter les croisements de flèches, **account-service** et **transfer-service** sont chacun un **bloc unique** avec la mention **2 réplicas (a, b)** ; les noms de conteneurs Docker et le routage NGINX détaillés sont au **§7**.
 
 Cette architecture permet une **séparation claire entre l’API, la logique métier et la couche de persistance**.
 
@@ -587,48 +550,7 @@ Diagramme de niveau 1 :
   <em>Figure 2. Diagramme Niveau 1</em>
 </p>
 
-```mermaid
-flowchart TB
-    subgraph CanBankX["CanBankX Banking API"]
-        subgraph AccountService["account-service"]
-            Kyc[KycController]
-            AccCtrl[AccountController]
-            Consult[AccountConsultController]
-            SagaInternal[InternalAccountSagaController]
-        end
-        subgraph TransferService["transfer-service"]
-            TransCtrl[TransferController]
-            TransSvc[TransferService]
-        end
-    end
-
-    subgraph Domaine
-        Customer[Customer]
-        Account[Account]
-        Transfer[Transfer]
-        Ledger[LedgerEntry]
-        Audit[AuditLog]
-    end
-
-    Kyc --> Customer
-    AccCtrl --> Account
-    Consult --> Account
-    Consult --> Ledger
-    SagaInternal --> Account
-    TransCtrl --> TransSvc
-    TransSvc --> Transfer
-    TransSvc --> SagaInternal
-
-    subgraph Infra
-        DB[(PostgreSQL)]
-    end
-
-    Account --> DB
-    Customer --> DB
-    Transfer --> DB
-    Ledger --> DB
-    Audit --> DB
-```
+![Figure 2 — Diagramme Niveau 1](Images/fig03_5_niveau1.png)
 
 ## Niveau 2 — Couche Domaine
 
@@ -648,21 +570,7 @@ Cette couche contient les règles métier principales du système et ne dépend 
   <em>Figure 3. Diagramme Niveau 2 Couche Domaine</em>
 </p>
 
-```mermaid
-flowchart TB
-    subgraph Domaine["Couche Domaine — Identique en Monolith et Microservices"]
-        Customer[Customer]
-        Account[Account]
-        Transfer[Transfer]
-        Ledger[LedgerEntry]
-        Audit[AuditLog]
-    end
-
-    Customer --> Account
-    Account --> Ledger
-    Transfer --> Ledger
-    Transfer --> Audit
-```
+![Figure 3 — Niveau 2, couche domaine](Images/fig04_5_n2_domaine.png)
 
 ---
 
@@ -684,28 +592,7 @@ Ces services implémentent les règles métier du système et coordonnent les in
   <em>Figure 4. Diagramme Niveau 2 Couche Application</em>
 </p>
 
-```mermaid
-flowchart LR
-    subgraph Monolith["Mode Monolith — Tous les services dans un processus"]
-        RegM[RegisterCustomerService]
-        ApproveM[ApproveKycService]
-        OpenM[OpenAccountService]
-        ConsultM[ConsultAccountService]
-        TransM[TransferService]
-    end
-
-    subgraph Micro["Mode Microservices — Services répartis"]
-        subgraph AccountSvc["account-service"]
-            Reg[RegisterCustomerService]
-            Approve[ApproveKycService]
-            Open[OpenAccountService]
-            Consult[ConsultAccountService]
-        end
-        subgraph TransferSvc["transfer-service"]
-            Trans[TransferService]
-        end
-    end
-```
+![Figure 4 — Niveau 2, couche application](Images/fig05_5_n2_application.png)
 
 ---
 
@@ -736,45 +623,7 @@ Cette couche dépend des autres couches mais celles-ci ne dépendent pas directe
   <em>Figure 5. Diagramme Niveau 2 Couche Infrastructure</em>
 </p>
 
-```mermaid
-flowchart TB
-    subgraph Monolith["Mode Monolith"]
-        subgraph ControllersM["Contrôleurs (1 processus)"]
-            KycM[KycController]
-            AccM[AccountController]
-            ConsultM[AccountConsultController]
-            TransM[TransferController]
-        end
-        subgraph ReposM["Repositories"]
-            CustM[CustomerRepository]
-            AccRepoM[AccountRepository]
-            TransRepoM[TransferRepository]
-            LedgerM[LedgerEntryRepository]
-            AuditM[AuditLogRepository]
-        end
-        DB_Mono[("PostgreSQL unique")]
-    end
-
-    subgraph Micro["Mode Microservices"]
-        subgraph AccInfra["account-service"]
-            Kyc[KycController]
-            Acc[AccountController]
-            Consult[AccountConsultController]
-            Saga[InternalAccountSagaController]
-            Cust[CustomerRepository]
-            AccRepo[AccountRepository]
-            Ledger[LedgerEntryRepository]
-            Audit[AuditLogRepository]
-            DB_Acc[("PostgreSQL account")]
-        end
-        subgraph TransInfra["transfer-service"]
-            Trans[TransferController]
-            TransRepo[TransferRepository]
-            Redis[Redis]
-            DB_Trans[("PostgreSQL transfer")]
-        end
-    end
-```
+![Figure 5 — Niveau 2, couche infrastructure](Images/fig06_5_n2_infrastructure.png)
 
 # 6. Vue dynamique (Runtime View)
 
@@ -985,19 +834,20 @@ Documenter cette vue permet de :
 
 Le système peut être exécuté localement via Docker :
 
-**Mode Monolith** (un seul conteneur applicatif) :
+**Mode Monolith** (un seul conteneur applicatif) — utiliser un **projet Compose distinct** du micro (`-p`) pour éviter les conflits de noms de services :
 ```bash
-docker compose -f docker-compose.monolith.yml up
+docker compose -p canbankx_mono -f docker-compose.monolith.yml up -d
 ```
 - Ports : Gateway 8091, Nginx 8083
 
 **Mode Microservices** (account-service + transfer-service) :
 ```bash
-docker compose -f docker-compose.lb.yml up
+docker compose -p canbankx_lb -f docker-compose.lb.yml up -d
+docker compose -p canbankx_lb -f docker-compose.lb.yml --profile monitoring up -d   # Prometheus :19090, Grafana :3001
 ```
-- Ports : Gateway 8090, Nginx 8082
+- Ports : Gateway 8090, Nginx 8082 ; Redis hôte **16379** ; Prometheus **19090** (profil monitoring)
 
-Cela permet de reproduire facilement l’environnement d’exécution et de comparer les deux architectures.
+Cela permet de reproduire facilement l’environnement d’exécution et de comparer les deux architectures. Détail opérationnel : `docs/RUNBOOK.md`.
 
 ### Environnement de démonstration (VM)
 
@@ -1035,13 +885,13 @@ Point d’entrée API (KrakenD) exposant les routes publiques.
 
 Load balancer NGINX routant les requêtes vers les microservices.
 
-### Conteneur canbankx_account_service
+### Conteneurs canbankx_account_a / canbankx_account_b
 
-Microservice Java/Spring Boot gérant les clients, KYC, comptes et le ledger.
+Deux instances du microservice Java/Spring Boot (clients, KYC, comptes, ledger), réparties par NGINX (`least_conn`).
 
-### Conteneur canbankx_transfer_service
+### Conteneurs canbankx_transfer_a / canbankx_transfer_b
 
-Microservice Java/Spring Boot gérant les virements et l’orchestration de la saga UC-05.
+Deux instances du microservice virements et orchestration saga UC-05, réparties par NGINX.
 
 ### Conteneur canbankx_db_account
 
@@ -1055,7 +905,7 @@ Base de données **PostgreSQL** du microservice transfer (transfers).
 
 Cache **Redis** pour la coordination de la saga (verrous distribués).
 
-Les conteneurs communiquent via le **réseau Docker interne** `canbankx-net`.
+Les conteneurs communiquent via le **réseau Docker interne** créé par `docker compose`.
 
 ---
 
@@ -1065,18 +915,18 @@ Le déploiement logique décrit comment les composants logiciels du système Can
 
 **Mode Monolith** : tous les composants (KycController, AccountController, TransferController, etc.) s’exécutent dans un seul conteneur, connecté à une base PostgreSQL partagée.
 
-**Mode Microservices** : deux services applicatifs, une base PostgreSQL par service (database per service) et Redis.
+**Mode Microservices** : deux services applicatifs (chacun **2 réplicas** derrière NGINX), une base PostgreSQL par service (database per service) et Redis.
 
 | Composant logiciel | Infrastructure cible | Détails |
 |--------------------|---------------------|--------|
-| account-service | Conteneur `canbankx_account_service` | KycController, AccountController, AccountConsultController, InternalAccountSagaController |
-| transfer-service | Conteneur `canbankx_transfer_service` | TransferController, orchestration saga UC-05 |
+| account-service | Conteneurs `canbankx_account_a`, `canbankx_account_b` | KycController, AccountController, AccountConsultController, InternalAccountSagaController |
+| transfer-service | Conteneurs `canbankx_transfer_a`, `canbankx_transfer_b` | TransferController, orchestration saga UC-05 |
 | Base account | Conteneur `canbankx_db_account` | PostgreSQL (customers, accounts, ledger, audit, saga_steps) |
 | Cache | Conteneur `canbankx_redis_lb` | Redis (verrous saga) |
 | Gateway | Conteneur `canbankx_gateway` | KrakenD (point d’entrée) |
 | Load balancer | Conteneur `canbankx_nginx` | NGINX (routage) |
 | Base transfer | Conteneur `canbankx_db_transfer` | PostgreSQL (transfers) |
-| Réseau applicatif | `canbankx-net` | Réseau Docker interne |
+| Réseau applicatif | Réseau Docker du projet Compose | Communication inter-conteneurs |
 
 ## 7.4 Diagramme de déploiement
 
@@ -1084,63 +934,9 @@ Le déploiement logique décrit comment les composants logiciels du système Can
   <em>Figure 12. Diagramme Déploiement — Monolith et Microservices (style Test1)</em>
 </p>
 
-```mermaid
-flowchart TB
-    subgraph User["<<Device>> User"]
-        Frontend["Frontend (Nginx:80)"]
-    end
+![Figure 12 — Diagramme de déploiement](Images/fig07_7_deploiement.png)
 
-    subgraph Entry["API Gateway"]
-        Gateway["API Gateway (KrakenD:8080)"]
-    end
-
-    subgraph Stress["<<Container>> Stress test"]
-        k6["<<Service>> k6"]
-        locust["<<Service>> locust"]
-    end
-
-    subgraph Observability["<<Container>> Observability"]
-        Prometheus["Prometheus"]
-        Grafana["Grafana"]
-    end
-
-    Frontend -->|HTTPS| Gateway
-    k6 -->|HTTP| Gateway
-    locust -->|HTTP| Gateway
-    Grafana -->|PromQL / HTTP| Prometheus
-
-    subgraph Monolith["Option A : Monolith (docker-compose.monolith.yml)"]
-        NginxM["NGINX :8083"]
-        Mono["canbankx_monolith :8080"]
-        DB_Mono[("PostgreSQL :5432")]
-    end
-
-    subgraph Micro["Option B : Microservices (docker-compose.lb.yml)"]
-        NginxL["NGINX :8082"]
-        Acc["account-service :8080"]
-        Trans["transfer-service :8080"]
-        DB_Acc[("PostgreSQL account :5435")]
-        DB_Trans[("PostgreSQL transfer :5436")]
-        Redis["Redis :6379"]
-    end
-
-    Gateway --> NginxM
-    Gateway --> NginxL
-
-    NginxM --> Mono
-    Mono --> DB_Mono
-
-    NginxL -->|/api/v1/customers, /api/v1/accounts| Acc
-    NginxL -->|/api/v1/transfers| Trans
-    Trans -->|/internal/saga/*| Acc
-    Acc --> DB_Acc
-    Trans --> DB_Trans
-    Trans --> Redis
-
-    Prometheus -->|Scrape /actuator/prometheus| Mono
-    Prometheus -->|Scrape /actuator/prometheus| Acc
-    Prometheus -->|Scrape /actuator/prometheus| Trans
-```
+*Même convention que la figure 3.2 :* les **deux instances** par microservice sont **regroupées** sur le schéma ; le détail des ports et conteneurs reste dans **§7.2** et **docker-compose.lb.yml**.
 
 # 8. Concepts transverses (Cross-cutting Concepts)
 
@@ -1328,16 +1124,15 @@ Le système est conteneurisé avec **Docker**.
 **Mode Monolith** :
 - un conteneur **canbankx_monolith** (toute la logique)
 - une base **PostgreSQL** partagée
-- `docker compose -f docker-compose.monolith.yml up`
+- `docker compose -p canbankx_mono -f docker-compose.monolith.yml up -d`
 
 **Mode Microservices** :
-- un conteneur **canbankx_gateway** (KrakenD) et **canbankx_nginx** (NGINX) pour l’entrée et le routage
-- un conteneur **canbankx_account_service** (comptes/KYC/ledger)
-- un conteneur **canbankx_transfer_service** (virements et saga UC-05)
+- **canbankx_gateway** (KrakenD) et **canbankx_nginx** (NGINX) pour l’entrée et le routage
+- **canbankx_account_a** et **canbankx_account_b** (même image, comptes/KYC/ledger) ; **canbankx_transfer_a** et **canbankx_transfer_b** (virements, saga UC-05)
 - **canbankx_db_account**, **canbankx_db_transfer** (PostgreSQL) et **canbankx_redis_lb** (Redis)
-- `docker compose -f docker-compose.lb.yml up`
+- `docker compose -p canbankx_lb -f docker-compose.lb.yml up --build -d` ; observabilité : `--profile monitoring` (Prometheus **:19090**, Grafana **:3001**, dashboard *Golden Signals*)
 
-Les conteneurs communiquent via le réseau Docker interne **canbankx-net**.
+Les conteneurs communiquent via le **réseau Docker interne** du projet Compose (ex. `canbankx_lb_default` / `canbankx_mono_default` selon `-p`).
 
 
 Cela garantit :
@@ -1366,41 +1161,23 @@ Certaines améliorations architecturales pourraient néanmoins être explorées 
 
 ---
 
-## 9.1 Découpage complet en microservices
+## 9.1 Poursuite du découpage et de la résilience
 
-L’architecture actuelle repose sur une **application monolithique modulaire** déployée sur plusieurs instances applicatives derrière un load balancer.
+En **mode microservices** (compose LB), l’architecture compte **deux instances** de **account-service** et **deux** de **transfer-service** derrière **NGINX**, plus **KrakenD** en point d’entrée. Cela permet de démontrer la **répartition de charge** et des tests de **tolérance aux pannes** (arrêt d’une instance sous charge).
 
-Cette approche permet de démontrer :
+Le **mode monolithique** (compose monolithe) reste disponible pour les **comparatifs de performance** (moins d’appels HTTP inter-services pour la saga).
 
-- la scalabilité horizontale
-- la distribution de charge
-- l’observabilité sous charge
-
-Une évolution prévue pour la **phase 2 du projet** consistera à séparer les domaines métier en microservices indépendants.
-
-L’architecture actuelle repose sur une application monolithique modulaire répliquée sur plusieurs instances derrière un load balancer, ce qui permet déjà de démontrer la scalabilité horizontale et la répartition de charge.
-
-Dans la phase 2, les principaux domaines fonctionnels pourraient être séparés en services indépendants, par exemple :
-
-- **Customer / KYC Service**
-- **Account Service**
-- **Transfer Service**
-- **Audit / Ledger Service**
-
-L’API Gateway **KrakenD**, déjà intégrée dans l’architecture actuelle, permettra de router les requêtes vers ces services de manière transparente.
+Pour une **phase 2** ultérieure, on pourrait encore séparer des bounded contexts (par ex. **Audit / Ledger** dédié), enrichir la **résilience** (circuit breaker, retry bornés) et durcir la **sécurité** (JWT, politiques fines sur `/internal/**`).
 
 ---
 
 ## 9.2 Analyses de performance plus approfondies
 
-Le projet inclut déjà des campagnes de tests de charge avec **k6**, ainsi que l’observation des métriques via **Prometheus** et **Grafana**.
+Le projet inclut des campagnes **k6**, **Prometheus** et **Grafana** (profil `--profile monitoring` sur le compose LB, dashboard *4 Golden Signals* versionné sous `monitoring/grafana/dashboards/`).
 
-Dans les phases futures, ces analyses pourraient être enrichies avec :
+Déjà en place : **deux réplicas** par microservice derrière NGINX ; script `scripts/run-k6-gateway-vs-direct.sh` pour comparer **NGINX direct (8082)** et **KrakenD (8090)**. Pour viser **N = 3 ou 4 instances**, dupliquer les services et les lignes `server` dans `nginx/nginx.conf` (voir `docs/RAPPORT_COMPARATIFS.md`).
 
-- des comparaisons systématiques entre **1, 2, 3 et 4 instances applicatives**
-- une analyse détaillée de l’impact du **load balancing**
-- des comparaisons entre **accès direct à l’API et accès via l’API Gateway**
-- la production de tableaux et graphiques comparatifs (latence P95/P99, RPS, taux d’erreurs, saturation).
+Pistes d’enrichissement ultérieur : campagnes systématiques **N = 1…4** avec tableaux latence/RPS/erreurs/saturation exportés ; scénarios de **panne** documentés dans le runbook.
 
 ---
 

@@ -4,9 +4,13 @@
 #   (from project root) - or copy/paste into: docker exec -it canbankx_nginx bash
 
 set -e
-# For monolith: MONOLITH=1 docker exec canbankx_nginx_monolith bash /tmp/seed-and-test.sh
-# Use localhost so nginx proxies to backends (avoids connection refused if services still starting)
-if [[ -n "$MONOLITH" ]]; then
+# From host against monolith stack (KrakenD) : SEED_GATEWAY_URL=http://localhost:8091 bash scripts/seed-and-test.sh
+# Inside Docker (same network as monolith): MONOLITH=1 … ACCT/TRANS → http://monolith:8080
+# Micro stack via nginx exec: ACCT/TRANS → http://localhost
+if [[ -n "$SEED_GATEWAY_URL" ]]; then
+  ACCT="$SEED_GATEWAY_URL"
+  TRANS="$SEED_GATEWAY_URL"
+elif [[ -n "$MONOLITH" ]]; then
   ACCT="http://monolith:8080"
   TRANS="http://monolith:8080"
 else
@@ -47,4 +51,8 @@ curl -s -u admin:admin -H "X-Customer-Id: $CID" "$ACCT/api/v1/accounts/$AID_DST/
 echo ""
 echo "=== 4. k6 - export and run ==="
 echo "CID_A=$CID AID_SRC=$AID_SRC AID_DST=$AID_DST"
-echo "BASE_URL=http://host.docker.internal:8082 ./scripts/run-k6.sh $CID $AID_SRC $AID_DST"
+if [[ -n "$SEED_GATEWAY_URL" ]]; then
+  echo "k6 run --summary-export=docs/metrics/k6-summary-8091.json -e BASE_URL=$SEED_GATEWAY_URL -e CID_A=$CID -e AID_SRC=$AID_SRC -e AID_DST=$AID_DST loadtests/canbankx.js"
+else
+  echo "BASE_URL=http://host.docker.internal:8082 ./scripts/run-k6.sh $CID $AID_SRC $AID_DST"
+fi

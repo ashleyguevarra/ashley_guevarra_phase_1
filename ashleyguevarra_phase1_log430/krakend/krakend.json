@@ -19,6 +19,23 @@
       ]
     },
     {
+      "endpoint": "/internal/seed/fund",
+      "method": "POST",
+      "input_headers": [
+        "Content-Type"
+      ],
+      "output_encoding": "no-op",
+      "backend": [
+        {
+          "host": [
+            "http://nginx"
+          ],
+          "url_pattern": "/internal/seed/fund",
+          "encoding": "no-op"
+        }
+      ]
+    },
+    {
       "endpoint": "/api/v1/customers",
       "method": "POST",
       "input_headers": [
