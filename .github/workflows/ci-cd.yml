@@ -1,4 +1,7 @@
-name: BrokerX CI/CD
+# Ce dépôt est un mono-repo : le projet Maven / Spring Boot est dans le sous-dossier
+# ashleyguevarra_phase1_log430/ (pas de pom.xml à la racine). Toutes les étapes Maven
+# et Docker doivent utiliser working-directory / context sur ce chemin.
+name: CanBankX CI/CD
 
 on:
   push:
@@ -15,20 +18,9 @@ jobs:
     name: Build and Test
     runs-on: ubuntu-latest
 
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_DB: brokerx
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd="pg_isready -U postgres -d brokerx"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
+    # Tests : profil `test` + H2 (src/test/resources/application-test.yml).
+    # Ne pas définir SPRING_DATASOURCE_* ici : ça écrase l’URL H2 tout en gardant
+    # driver-class-name=H2 → échec du ApplicationContext.
 
     steps:
       - name: Checkout repository
@@ -40,19 +32,10 @@ jobs:
           distribution: temurin
           java-version: '17'
           cache: maven
-
-      - name: Show repo files
-        run: |
-          pwd
-          ls -la
-          find . -name "pom.xml"
+          cache-dependency-path: ashleyguevarra_phase1_log430/pom.xml
 
       - name: Build and test with Maven
         working-directory: ./ashleyguevarra_phase1_log430
-        env:
-          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/brokerx
-          SPRING_DATASOURCE_USERNAME: postgres
-          SPRING_DATASOURCE_PASSWORD: postgres
         run: mvn -B clean verify
 
   cd:

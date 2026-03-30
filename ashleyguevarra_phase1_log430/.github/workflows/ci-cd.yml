@@ -1,4 +1,7 @@
-name: CanBankX CI/CD
+# Non exécuté par GitHub si le dépôt distant est ashley_guevarra_phase_1 : dans ce cas,
+# seul /.github/workflows/ à la racine du dépôt compte. Ce fichier sert si ce dossier
+# est un jour la racine Git du projet (alors working-directory = .).
+name: CanBankX CI/CD (projet seul)
 
 on:
   push:
@@ -15,30 +18,16 @@ jobs:
     name: Build and Test
     runs-on: ubuntu-latest
 
-    # Tests unitaires / slice : profil `test` + H2 en mémoire (voir application-test.yml).
-    # Ne pas définir SPRING_DATASOURCE_* ici : ça écrase l’URL H2 tout en laissant
-    # driver-class-name=H2 dans le YAML → échec du ApplicationContext sur GitHub Actions.
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
           cache: maven
 
-      - name: Show repo files
-        run: |
-          pwd
-          ls -la
-          find . -name "pom.xml"
-
-      - name: Build and test with Maven
-        working-directory: ./ashleyguevarra_phase1_log430
-        run: mvn -B clean verify
+      - run: mvn -B clean verify
 
   cd:
     name: Build and Push Docker Image
@@ -47,18 +36,15 @@ jobs:
     if: github.event_name == 'push'
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+      - uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata
-        id: meta
+      - id: meta
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}
@@ -67,10 +53,9 @@ jobs:
             type=ref,event=branch
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v6
         with:
-          context: ./ashleyguevarra_phase1_log430
+          context: .
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
