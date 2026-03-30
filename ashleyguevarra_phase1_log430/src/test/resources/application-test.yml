@@ -1,4 +1,6 @@
 # Profil test : pas de PostgreSQL ni Redis requis (CI / poste local sans Docker).
+# Ne pas exporter SPRING_DATASOURCE_URL vers PostgreSQL dans CI : ça écrase l’URL ci-dessous
+# tout en laissant driver-class-name=H2 → ApplicationContext en échec.
 spring:
   datasource:
     url: jdbc:h2:mem:testcanbankx;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH
