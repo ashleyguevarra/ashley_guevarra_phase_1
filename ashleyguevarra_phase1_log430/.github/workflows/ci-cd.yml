@@ -1,6 +1,4 @@
-# Non exécuté par GitHub si le dépôt distant est ashley_guevarra_phase_1 : dans ce cas,
-# seul /.github/workflows/ à la racine du dépôt compte. Ce fichier sert si ce dossier
-# est un jour la racine Git du projet (alors working-directory = .).
+# GitHub lit les workflows à la racine du repo parent ; ce fichier ne sert que si ce dossier devient la racine Git.
 name: CanBankX CI/CD (projet seul)
 
 on:

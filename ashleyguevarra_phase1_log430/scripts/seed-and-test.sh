@@ -4,9 +4,9 @@
 #   (from project root) - or copy/paste into: docker exec -it canbankx_nginx bash
 
 set -e
-# From host against monolith stack (KrakenD) : SEED_GATEWAY_URL=http://localhost:8091 bash scripts/seed-and-test.sh
-# Inside Docker (same network as monolith): MONOLITH=1 … ACCT/TRANS → http://monolith:8080
-# Micro stack via nginx exec: ACCT/TRANS → http://localhost
+# Monolithe depuis le Mac : SEED_GATEWAY_URL=http://localhost:8091 bash scripts/seed-and-test.sh
+# Dans un conteneur sur le réseau monolithe : MONOLITH=1 → URLs internes monolith:8080
+# Micro : docker exec dans nginx, localhost vers les backends
 if [[ -n "$SEED_GATEWAY_URL" ]]; then
   ACCT="$SEED_GATEWAY_URL"
   TRANS="$SEED_GATEWAY_URL"

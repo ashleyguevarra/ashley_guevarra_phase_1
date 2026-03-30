@@ -2,7 +2,7 @@
 
 ## Démarrage rapide — microservices + LB + gateway
 
-**Important :** utiliser **`-p canbankx_lb`** pour cette stack. Si tu lances aussi `docker-compose.monolith.yml` depuis le même dossier, utilise **`-p canbankx_mono`** pour le monolithe — sinon Compose fusionne les deux fichiers (mêmes noms de services `redis` / `nginx` / `gateway`) et provoque des conflits de noms de conteneurs.
+**Astuce :** j’utilise **`-p canbankx_lb`** pour le micro et **`-p canbankx_mono`** pour le monolithe. Sinon les deux `docker-compose.*` dans le même dossier se marchent dessus (même noms `redis`, `nginx`, `gateway` → conteneurs en conflit).
 
 ```bash
 docker compose -p canbankx_lb -f docker-compose.lb.yml up --build -d
@@ -61,4 +61,4 @@ Pour cibler une seule JVM, utiliser `monitoring/prometheus.monolith.yml` (cible 
 ./mvnw -B clean verify
 ```
 
-Rollback déploiement : rétablir une image ou un tag précédent du conteneur, ou `docker compose -p canbankx_lb -f docker-compose.lb.yml down` (ou `-p canbankx_mono` …) puis monter une version antérieure du dépôt.
+Rollback : repasser à une ancienne image / tag, ou `docker compose -p canbankx_lb -f docker-compose.lb.yml down` (idem `canbankx_mono` pour l’autre stack) puis checkout d’une version plus vieille du code.

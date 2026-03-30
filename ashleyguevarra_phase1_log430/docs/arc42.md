@@ -261,7 +261,11 @@ Les interactions principales utilisent :
 - **PostgreSQL** pour la persistance des données
 - **Deux modes de déploiement** : **Monolith** (un conteneur) ou **Microservices** (account-service + transfer-service, database per service)
 
-![Figure — Contexte technique (3.2)](Images/fig02_3_2_contexte_technique.png)
+<p style="text-align: center;">
+  <em>Figure 2. Contexte technique</em>
+</p>
+
+![Figure 2 — Contexte technique (3.2)](Images/fig02_3_2_contexte_technique.png)
 
 *Lecture du schéma :* pour éviter les croisements de flèches, **account-service** et **transfer-service** sont chacun un **bloc unique** avec la mention **2 réplicas (a, b)** ; les noms de conteneurs Docker et le routage NGINX détaillés sont au **§7**.
 
@@ -547,10 +551,10 @@ Le système est également organisé autour de plusieurs modules métier princip
 Diagramme de niveau 1 :
 
 <p style="text-align: center;">
-  <em>Figure 2. Diagramme Niveau 1</em>
+  <em>Figure 3. Diagramme Niveau 1</em>
 </p>
 
-![Figure 2 — Diagramme Niveau 1](Images/fig03_5_niveau1.png)
+![Figure 3 — Diagramme Niveau 1](Images/fig03_5_niveau1.png)
 
 ## Niveau 2 — Couche Domaine
 
@@ -567,10 +571,10 @@ Les principales entités sont :
 Cette couche contient les règles métier principales du système et ne dépend pas des couches techniques. Les entités du domaine sont **identiques** en mode Monolith et en mode Microservices.
 
 <p style="text-align: center;">
-  <em>Figure 3. Diagramme Niveau 2 Couche Domaine</em>
+  <em>Figure 4. Diagramme Niveau 2 Couche Domaine</em>
 </p>
 
-![Figure 3 — Niveau 2, couche domaine](Images/fig04_5_n2_domaine.png)
+![Figure 4 — Niveau 2, couche domaine](Images/fig04_5_n2_domaine.png)
 
 ---
 
@@ -589,10 +593,10 @@ Les principaux services identifiés dans le projet sont :
 Ces services implémentent les règles métier du système et coordonnent les interactions entre les entités du domaine, les repositories et les mécanismes transverses comme l'audit. En **mode Monolith**, tous les services s'exécutent dans un seul processus. En **mode Microservices**, ils sont répartis entre account-service et transfer-service.
 
 <p style="text-align: center;">
-  <em>Figure 4. Diagramme Niveau 2 Couche Application</em>
+  <em>Figure 5. Diagramme Niveau 2 Couche Application</em>
 </p>
 
-![Figure 4 — Niveau 2, couche application](Images/fig05_5_n2_application.png)
+![Figure 5 — Niveau 2, couche application](Images/fig05_5_n2_application.png)
 
 ---
 
@@ -620,10 +624,10 @@ Elle inclut notamment :
 Cette couche dépend des autres couches mais celles-ci ne dépendent pas directement des détails techniques qu'elle implémente. En **mode Monolith**, un seul PostgreSQL et tous les contrôleurs/repositories dans un processus. En **mode Microservices**, database per service (PostgreSQL account, PostgreSQL transfer), Redis pour les verrous de saga, et contrôleurs répartis par service.
 
 <p style="text-align: center;">
-  <em>Figure 5. Diagramme Niveau 2 Couche Infrastructure</em>
+  <em>Figure 6. Diagramme Niveau 2 Couche Infrastructure</em>
 </p>
 
-![Figure 5 — Niveau 2, couche infrastructure](Images/fig06_5_n2_infrastructure.png)
+![Figure 6 — Niveau 2, couche infrastructure](Images/fig06_5_n2_infrastructure.png)
 
 # 6. Vue dynamique (Runtime View)
 
@@ -669,9 +673,9 @@ Les cinq cas d’utilisation principaux du système sont présentés ci-dessous.
 ### Diagramme de séquence — UC-01
 
 <p style="text-align: center;">
-  <img src="./Images/6_UC01.png" alt="Figure 6" width="600">
+  <img src="./Images/6_UC01.png" alt="Figure 7" width="600">
   <br>
-  <em>Figure 6. Diagramme UC01</em>
+  <em>Figure 7. Diagramme UC01</em>
 </p>
 
 ## Scénario 2 — UC-02 : Vérification KYC
@@ -687,9 +691,9 @@ Les cinq cas d’utilisation principaux du système sont présentés ci-dessous.
 ### Diagramme de séquence — UC-02
 
 <p style="text-align: center;">
-  <img src="./Images/6_UC02.png" alt="Figure 7" width="600">
+  <img src="./Images/6_UC02.png" alt="Figure 8" width="600">
   <br>
-  <em>Figure 7. Diagramme UC02</em>
+  <em>Figure 8. Diagramme UC02</em>
 </p>
 
 ---
@@ -710,9 +714,9 @@ Les cinq cas d’utilisation principaux du système sont présentés ci-dessous.
 ### Diagramme de séquence — UC-03
 
 <p style="text-align: center;">
-  <img src="./Images/6_UC03.png" alt="Figure 8" width="600">
+  <img src="./Images/6_UC03.png" alt="Figure 9" width="600">
   <br>
-  <em>Figure 8. Diagramme UC03</em>
+  <em>Figure 9. Diagramme UC03</em>
 </p>
 
 ---
@@ -731,9 +735,9 @@ Les cinq cas d’utilisation principaux du système sont présentés ci-dessous.
 ### Diagramme de séquence — UC-04
 
 <p style="text-align: center;">
-  <img src="./Images/6_UC04.png" alt="Figure 9" width="600">
+  <img src="./Images/6_UC04.png" alt="Figure 10" width="600">
   <br>
-  <em>Figure 9. Diagramme UC04</em>
+  <em>Figure 10. Diagramme UC04</em>
 </p>
 
 ---
@@ -755,9 +759,9 @@ Les cinq cas d’utilisation principaux du système sont présentés ci-dessous.
 ### Diagramme de séquence — UC-05 (Saga)
 
 <p style="text-align: center;">
-  <img src="./Images/6_UC05.png" alt="Figure 10" width="600">
+  <img src="./Images/6_UC05.png" alt="Figure 11" width="600">
   <br>
-  <em>Figure 10. Diagramme UC05 (Saga)</em>
+  <em>Figure 11. Diagramme UC05 (Saga)</em>
 </p>
 
 ### Observabilité et métriques d'exécution — Comparaison Monolith vs Microservices
@@ -780,18 +784,17 @@ Les campagnes de tests de charge réalisées avec **k6** permettent de comparer 
 
 #### Résultats comparatifs k6 — Monolith vs Microservices
 
-| Métrique | Monolith (8091) | Microservices (8082/8090) |
-|----------|-----------------|---------------------------|
-| **RPS** (requêtes/s) | 18,6 | 18,1 |
-| **Latence P95** (ms) | 202 | 316 |
-| **Taux d'erreur** (%) | 0,00 | 0,00 |
-| **http_req_failed** | 0/2050 | 0/2007 |
+Chiffres à jour (même scénario k6 : 70 % balance, 20 % ledger, 10 % transfers, rampe 10→25→50 VUs) — détail dans **`docs/RAPPORT_COMPARATIFS.md`** §1–§2.
 
-*Même scénario k6 (70 % balance, 20 % ledger, 10 % transfers, rampe 10→25→50 VUs).*
+| Métrique | Monolith (KrakenD **8091**) | Micro (KrakenD **8090**) | Micro (NGINX direct **8082**) |
+|----------|----------------------------|--------------------------|------------------------------|
+| **P95** `http_req_duration` | ~0,38 s | ~1,22 s | ~1,76 s |
+| **RPS** (`http_reqs`) | ~18 / s | ~15 / s | ~14 / s |
+| **Erreurs HTTP** | 0 % | 0 % | 0 % |
 
-**Note** : Les résultats montrent une latence P95 plus faible pour le Monolith (202 ms vs 316 ms). Ce comportement est **attendu** dans ce contexte (une instance par architecture). Le Monolith évite les appels HTTP entre services (transfer-service → account-service pour la saga), ce qui réduit la latence. Les microservices sont privilégiés pour la scalabilité, l’indépendance des déploiements et la résilience — pas pour la performance brute en configuration mono-instance.
+**Lecture** : sur mes campagnes, le monolithe sort **moins cher en P95** qu’un parcours micro + saga HTTP (plus de sauts réseau). Les microservices restent pertinents pour scaler, déployer et isoler les pannes — pas forcément pour le P95 sur un laptop avec peu d’instances.
 
-Les résultats permettent de visualiser les différences de comportement entre le Monolith (un seul processus) et les Microservices (plusieurs instances derrière le load balancer NGINX).
+Comparaison **direct vs gateway** sur la stack micro : voir rapport §2 (8082 vs 8090).
 
 # 7. Vue de déploiement (Deployment View)
 
@@ -834,7 +837,7 @@ Documenter cette vue permet de :
 
 Le système peut être exécuté localement via Docker :
 
-**Mode Monolith** (un seul conteneur applicatif) — utiliser un **projet Compose distinct** du micro (`-p`) pour éviter les conflits de noms de services :
+**Mode Monolith** (un seul conteneur applicatif) — je mets **`-p canbankx_mono`** pour ne pas écraser la stack micro si les deux compose sont dans le même dossier :
 ```bash
 docker compose -p canbankx_mono -f docker-compose.monolith.yml up -d
 ```
@@ -847,7 +850,7 @@ docker compose -p canbankx_lb -f docker-compose.lb.yml --profile monitoring up -
 ```
 - Ports : Gateway 8090, Nginx 8082 ; Redis hôte **16379** ; Prometheus **19090** (profil monitoring)
 
-Cela permet de reproduire facilement l’environnement d’exécution et de comparer les deux architectures. Détail opérationnel : `docs/RUNBOOK.md`.
+Pour les commandes au quotidien et les pièges Docker, voir `docs/RUNBOOK.md`.
 
 ### Environnement de démonstration (VM)
 
@@ -931,12 +934,12 @@ Le déploiement logique décrit comment les composants logiciels du système Can
 ## 7.4 Diagramme de déploiement
 
 <p style="text-align: center;">
-  <em>Figure 12. Diagramme Déploiement — Monolith et Microservices (style Test1)</em>
+  <em>Figure 12. Diagramme de déploiement — monolithe et microservices</em>
 </p>
 
 ![Figure 12 — Diagramme de déploiement](Images/fig07_7_deploiement.png)
 
-*Même convention que la figure 3.2 :* les **deux instances** par microservice sont **regroupées** sur le schéma ; le détail des ports et conteneurs reste dans **§7.2** et **docker-compose.lb.yml**.
+*Même convention que la figure 2 (contexte technique) :* les **deux instances** par microservice sont **regroupées** sur le schéma ; le détail des ports et conteneurs reste dans **§7.2** et **docker-compose.lb.yml**.
 
 # 8. Concepts transverses (Cross-cutting Concepts)
 

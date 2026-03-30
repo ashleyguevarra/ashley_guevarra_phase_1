@@ -44,7 +44,7 @@ k6 run --summary-export=docs/metrics/k6-summary-8091.json \
 
 **Export :** [`metrics/k6-summary-8091.json`](metrics/k6-summary-8091.json).
 
-**Lecture (même machine, campagnes à quelques jours d’écart) :** sur cet essai, le monolithe affiche un **P95 plus bas** et un **RPS plus élevé** que KrakenD sur la stack micro — cohérent avec moins de saut réseau entre services, mais la comparaison reste indicative (charge, état des volumes, non reproductibilité stricte jour à jour).
+**Commentaire :** sur mes runs, le monolithe sort meilleur en P95 / RPS que KrakenD sur le micro — ça se tient (une JVM, moins de HTTP entre services), mais ce n’est pas un bench rigoureux : campagnes pas toutes le même jour, laptop pas isolé.
 
 ---
 
@@ -130,14 +130,14 @@ Configuration mesurée : **N = 2** par type de service (account, transfer), NGIN
 
 ![Dashboard Grafana — 4 Golden Signals pendant un run k6](Images/Grafana_Test.png)
 
-**Lecture du dashboard :**
+**Ce que je vois sur la capture :**
 
-- **Trafic (RPS)** : pic net sur **account-service-a** et **account-service-b** pendant le run k6 ; les **transfer-service** restent plus bas (scénario majoritairement balance / ledger).
-- **Erreurs (5xx)** : panneau vide (« No data ») = **aucun taux 5xx** enregistré sur la fenêtre affichée — cohérent avec un run sans erreurs HTTP côté serveur.
-- **Latence (p95)** : panneau vide = les séries Prometheus utilisées (histogrammes `http_server_requests_seconds_bucket`, fenêtre **5m**, filtres) n’ont pas produit de points visibles **dans ce créneau** ; cela **ne contredit pas** les latences mesurées par **k6** (vue **client**, autre source et autre agrégation).
-- **Saturation** : hausse du **CPU** des instances account en phase de charge ; le **heap** JVM reste modéré sur la capture.
+- **Trafic** : surtout les **account-service** qui montent pendant k6 ; les **transfer** moins, normal vu le mix du script (beaucoup de balance/ledger).
+- **Erreurs 5xx** : rien d’affiché → pas de 5xx sur la plage de temps (ou métrique vide).
+- **Latence p95 Grafana** : vide sur mon run — soit la requête PromQL / la fenêtre 5 min, soit les buckets pas remontés comme prévu. **k6** lui mesure autre chose (latence côté client), donc je me fie aux deux sources séparément.
+- **Saturation** : CPU account qui grimpe avec la charge ; heap pas fou sur la capture.
 
-**k6 et seuil `http_req_duration` :** le script [`loadtests/canbankx.js`](../loadtests/canbankx.js) impose `p(95)<2000` ms. Si k6 affiche `thresholds on metrics 'http_req_duration' have been crossed`, c’est que le **p(95) client** a dépassé **2 s** sur ce run (souvent vers le palier à 50 VUs) — **à distinguer** des checks HTTP (statut 200) qui peuvent rester entièrement verts. Pour le rapport : c’est une **limite de perf par rapport au seuil choisi**, pas nécessairement une panne applicative.
+**Seuil k6** : dans [`loadtests/canbankx.js`](../loadtests/canbankx.js) j’ai `p(95)<2000` ms. Le message `thresholds ... crossed` veut juste dire que le p95 a dépassé 2 s à un moment (souvent avec 50 VUs), même si les checks HTTP restent à 200. C’est le seuil du script, pas forcément un bug app.
 
 ---
 

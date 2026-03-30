@@ -1,6 +1,6 @@
 # Tests – Ledger, k6, Comparatif Monolithe
 
-**Stack microservices** : deux réplicas **account** et **transfer** derrière NGINX (`docker-compose.lb.yml`). Toujours **`-p canbankx_lb`** pour ne pas fusionner avec le compose monolithe. Observabilité : `docker compose -p canbankx_lb -f docker-compose.lb.yml --profile monitoring up -d` (Prometheus + Grafana, dashboard *4 Golden Signals*).
+**Stack micro** : 2× account, 2× transfer, NGINX (`docker-compose.lb.yml`). J’utilise **`-p canbankx_lb`** pour pas que ça rentre dans le compose monolithe. Monitoring : `docker compose -p canbankx_lb -f docker-compose.lb.yml --profile monitoring up -d` (Prometheus + Grafana, dashboard *4 Golden Signals*).
 
 **Gateway vs NGINX direct** : `./scripts/run-k6-gateway-vs-direct.sh CID_A AID_SRC AID_DST` puis remplir `docs/RAPPORT_COMPARATIFS.md`.
 

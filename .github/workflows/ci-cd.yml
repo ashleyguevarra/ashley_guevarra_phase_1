@@ -1,6 +1,4 @@
-# Ce dépôt est un mono-repo : le projet Maven / Spring Boot est dans le sous-dossier
-# ashleyguevarra_phase1_log430/ (pas de pom.xml à la racine). Toutes les étapes Maven
-# et Docker doivent utiliser working-directory / context sur ce chemin.
+# Le pom est dans ashleyguevarra_phase1_log430/, pas à la racine du repo — Maven + Docker pointent là.
 name: CanBankX CI/CD
 
 on:
@@ -18,9 +16,7 @@ jobs:
     name: Build and Test
     runs-on: ubuntu-latest
 
-    # Tests : profil `test` + H2 (src/test/resources/application-test.yml).
-    # Ne pas définir SPRING_DATASOURCE_* ici : ça écrase l’URL H2 tout en gardant
-    # driver-class-name=H2 → échec du ApplicationContext.
+    # Les tests utilisent H2 (voir application-test.yml). Pas de vars SPRING_DATASOURCE_* sinon ça casse tout.
 
     steps:
       - name: Checkout repository

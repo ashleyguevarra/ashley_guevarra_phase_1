@@ -73,14 +73,14 @@ Le système implémente les cas d'utilisation suivants :
 
 ## 1. Lancer l’environnement Docker (recommandé)
 
-Le scénario principal est décrit dans **`docs/RUNBOOK.md`** (stack micro avec **`-p canbankx_lb`**, monolithe avec **`-p canbankx_mono`**). Exemple micro + observabilité :
+Voir **`docs/RUNBOOK.md`** pour le détail. En bref : micro = **`-p canbankx_lb`**, monolithe = **`-p canbankx_mono`**. Exemple avec monitoring :
 
 ```
 docker compose -p canbankx_lb -f docker-compose.lb.yml up -d
 docker compose -p canbankx_lb -f docker-compose.lb.yml --profile monitoring up -d
 ```
 
-*(Sans ces **`-p`**, ne pas mélanger `docker-compose.lb.yml` et `docker-compose.monolith.yml` dans le même dossier — risque de conflits de conteneurs.)*
+*(Si tu lances les deux compose sans `-p` différents, Docker mélange les services et ça part en mêlée.)*
 
 ---
 
